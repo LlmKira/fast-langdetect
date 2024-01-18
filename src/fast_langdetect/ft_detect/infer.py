@@ -13,7 +13,7 @@ from robust_downloader import download
 
 logger = logging.getLogger(__name__)
 MODELS = {"low_mem": None, "high_mem": None}
-FTLANG_CACHE = os.getenv("FTLANG_CACHE", "/tmp/ft_detect-ft_detect")
+FTLANG_CACHE = os.getenv("FTLANG_CACHE", "/tmp/fasttext-langdetect")
 
 try:
     # silences warnings as the package does not properly use the python 'warnings' package

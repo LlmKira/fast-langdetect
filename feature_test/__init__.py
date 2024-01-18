@@ -13,3 +13,5 @@ print(parse_sentence("hello world"))
 print(parse_sentence("hello world"))
 print(parse_sentence("hello world"))
 print(parse_sentence("hello world"))
+
+print(parse_sentence("你好世界"))
