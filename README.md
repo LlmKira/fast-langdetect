@@ -4,6 +4,8 @@
 [![Downloads](https://pepy.tech/badge/fast-langdetect)](https://pepy.tech/project/fast-langdetect)
 [![Downloads](https://pepy.tech/badge/fast-langdetect/month)](https://pepy.tech/project/fast-langdetect/month)
 
+Python 3.8-3.11 support only.
+
 80x faster and 95% accurate language identification with Fasttext
 
 This library is a wrapper for the language detection model trained on fasttext by Facebook. For more information, please
