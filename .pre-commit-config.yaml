@@ -9,6 +9,6 @@ repos:
 
   # check python requirements
   - repo: https://github.com/pdm-project/pdm
-    rev: 2.11.1 # a PDM release exposing the hook
+    rev: 2.11.2 # a PDM release exposing the hook
     hooks:
       - id: pdm-lock-check
