@@ -12,10 +12,10 @@ def test_muti_detect():
 
 
 def test_detect_totally():
-    from fast_langdetect import detect_text
-    assert detect_text("hello world") == "EN", "ft_detect error"
-    assert detect_text("你好世界") == "ZH", "ft_detect error"
-    assert detect_text("こんにちは世界") == "JA", "ft_detect error"
+    from fast_langdetect import detect_langs
+    assert detect_langs("hello world") == "EN", "ft_detect error"
+    assert detect_langs("你好世界") == "ZH", "ft_detect error"
+    assert detect_langs("こんにちは世界") == "JA", "ft_detect error"
 
 
 def test_parse():
