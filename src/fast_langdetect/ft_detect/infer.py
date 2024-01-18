@@ -61,8 +61,8 @@ def get_model_loaded(
             loaded_model = fasttext.load_model(model_path)
             MODELS[mode] = loaded_model
         except Exception as e:
-            download(url=url, folder=cache, filename=name, proxy=download_proxy)
             logger.error(f"Error loading model {model_path}: {e}")
+            download(url=url, folder=cache, filename=name, proxy=download_proxy)
             raise e
         else:
             return loaded_model
@@ -74,7 +74,7 @@ def get_model_loaded(
 
 
 def detect(text: str, *,
-           low_memory: bool = False,
+           low_memory: bool = True,
            model_download_proxy: str = None
            ) -> Dict[str, Union[str, float]]:
     model = get_model_loaded(low_memory=low_memory, download_proxy=model_download_proxy)
@@ -88,7 +88,7 @@ def detect(text: str, *,
 
 
 def detect_multilingual(text: str, *,
-                        low_memory: bool = False,
+                        low_memory: bool = True,
                         model_download_proxy: str = None,
                         k: int = 5,
                         threshold: float = 0.0,

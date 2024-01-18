@@ -13,7 +13,7 @@ def is_japanese(string):
     return False
 
 
-def detect_text(sentence, *, low_memory: bool = True):
+def detect_langs(sentence, *, low_memory: bool = True):
     """
     Detect language
     :param sentence: str sentence
