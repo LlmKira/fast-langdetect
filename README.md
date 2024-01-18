@@ -36,14 +36,14 @@ pip install fast-langdetect
 from fast_langdetect import detect_langs
 
 print(detect_langs("Hello, world!"))
-# [en:0.9999961853027344]
+# EN
 
 print(detect_langs("Привет, мир!"))
-# [ru:0.9999961853027344]
+# RU
 
 
 print(detect_langs("你好，世界！"))
-# [zh:0.9999961853027344]
+# ZH
 
 ```
 
