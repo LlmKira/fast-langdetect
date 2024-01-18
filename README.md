@@ -53,12 +53,11 @@ from fast_langdetect import detect, parse_sentence, detect_multilingual
 print(detect("Hello, world!"))
 # {'lang': 'en', 'score': 0.1520957201719284}
 
-print(parse_sentence("你好世界！Hello, world！Привет, мир！"))
-# [{'text': '你好世界！Hello, world！', 'lang': 'ZH', 'length': 18}, {'text': 'Привет, мир！', 'lang': 'UK', 'length': 12}, {'text': '', 'lang': 'EN', 'length': 0}]
-
 print(detect_multilingual("Hello, world!你好世界!Привет, мир!"))
 # [{'lang': 'ru', 'score': 0.39008623361587524}, {'lang': 'zh', 'score': 0.18235979974269867}, {'lang': 'ja', 'score': 0.08473210036754608}, {'lang': 'sr', 'score': 0.057975586503744125}, {'lang': 'en', 'score': 0.05422825738787651}]
 
+print(parse_sentence("你好世界！Hello, world！Привет, мир！"))
+# [{'text': '你好世界！Hello, world！', 'lang': 'ZH', 'length': 18}, {'text': 'Привет, мир！', 'lang': 'UK', 'length': 12}, {'text': '', 'lang': 'EN', 'length': 0}]
 ```
 
 ## Accuracy
