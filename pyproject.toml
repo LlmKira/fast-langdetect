@@ -1,6 +1,6 @@
 [project]
 name = "fast-langdetect"
-version = "0.1.0"
+version = "0.1.1"
 description = "Quickly detect text language and segment language"
 authors = [
     { name = "sudoskys", email = "coldlando@hotmail.com" },
@@ -9,8 +9,9 @@ dependencies = [
     "fasttext-wheel>=0.9.2",
     "requests>=2.31.0",
     "robust-downloader>=0.0.2",
+    "numpy>=1.26.4,<2.0.0",
 ]
-requires-python = ">=3.8,<3.12"
+requires-python = ">=3.9,<3.13"
 readme = "README.md"
 license = { text = "MIT" }
 
@@ -19,9 +20,9 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 
-[tool.pdm]
-package-type = "library"
 
+[tool.pdm]
+distribution = true
 [tool.pdm.dev-dependencies]
 dev = [
     "pytest>=7.4.4",
