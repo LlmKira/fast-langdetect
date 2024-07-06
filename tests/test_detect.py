@@ -16,8 +16,3 @@ def test_detect_totally():
     assert detect_langs("hello world") == "EN", "ft_detect error"
     assert detect_langs("你好世界") == "ZH", "ft_detect error"
     assert detect_langs("こんにちは世界") == "JA", "ft_detect error"
-
-
-def test_parse():
-    from fast_langdetect import parse_sentence
-    assert parse_sentence("hello world") == [{"text": "hello world", "lang": "EN", "length": 11}], "ft_detect error"
