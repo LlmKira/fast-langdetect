@@ -2,67 +2,89 @@
 
 [![PyPI version](https://badge.fury.io/py/fast-langdetect.svg)](https://badge.fury.io/py/fast-langdetect)
 [![Downloads](https://pepy.tech/badge/fast-langdetect)](https://pepy.tech/project/fast-langdetect)
-[![Downloads](https://pepy.tech/badge/fast-langdetect/month)](https://pepy.tech/project/fast-langdetect/month)
+[![Downloads](https://pepy.tech/badge/fast-langdetect/month)](https://pepy.tech/project/fast-langdetect/)
 
-Python 3.9-3.12 support only. 🐍
+## Overview
 
-80x faster and 95% accurate language identification with Fasttext 🏎️
+**fast-langdetect** provides ultra-fast and highly accurate language detection based on FastText, a library developed by
+Facebook. This package is 80x faster than traditional methods and offers 95% accuracy.
 
-This library is a wrapper for the language detection model trained on fasttext by Facebook. For more information, please
-visit: https://fasttext.cc/docs/en/language-identification.html 📘
+It supports Python versions 3.9 to 3.12.
 
-This repository is patched
-from [zafercavdar/fasttext-langdetect](https://github.com/zafercavdar/fasttext-langdetect#benchmark), adding
-multi-language segmentation and better packaging
-support. 🌐
+This project builds upon [zafercavdar/fasttext-langdetect](https://github.com/zafercavdar/fasttext-langdetect#benchmark)
+with enhancements in packaging.
 
-Facilitates more accurate TTS implementation. 🗣️
+For more information on the underlying FastText model, refer to the official
+documentation: [FastText Language Identification](https://fasttext.cc/docs/en/language-identification.html).
 
-**Need 200M+ memory to use low_memory mode** 💾
+> [!NOTE]
+> This library requires over 200MB of memory to use in low memory mode.
 
 ## Installation 💻
+
+To install fast-langdetect, you can use either `pip` or `pdm`:
+
+### Using pip
 
 ```bash
 pip install fast-langdetect
 ```
 
-## Usage 🖥️
+### Using pdm
 
-**For more accurate language detection, please use `detect(text,low_memory=False)` to load the big model.**
-
-**Model will be downloaded in `/tmp/fasttext-langdetect` directory when you first use it.**
-
-```python
-from fast_langdetect import detect_langs
-
-print(detect_langs("Hello, world!"))
-# EN
-
-print(detect_langs("Привет, мир!"))
-# RU
-
-
-print(detect_langs("你好，世界！"))
-# ZH
-
+```bash
+pdm add fast-langdetect
 ```
 
-## Advanced usage 🚀
+## Usage 🖥️
+
+For optimal performance and accuracy in language detection, use `detect(text, low_memory=False)` to load the larger
+model.
+
+> The model will be downloaded to the `/tmp/fasttext-langdetect` directory upon first use.
+
+### Native API (Recommended)
 
 ```python
 from fast_langdetect import detect, detect_multilingual
 
+# Single language detection
 print(detect("Hello, world!"))
-# {'lang': 'en', 'score': 0.1520957201719284}
+# Output: {'lang': 'en', 'score': 0.1520957201719284}
 
+print(detect("Привет, мир!")["lang"])
+# Output: ru
+
+# Multi-language detection
 print(detect_multilingual("Hello, world!你好世界!Привет, мир!"))
-# [{'lang': 'ru', 'score': 0.39008623361587524}, {'lang': 'zh', 'score': 0.18235979974269867}, {'lang': 'ja', 'score': 0.08473210036754608}, {'lang': 'sr', 'score': 0.057975586503744125}, {'lang': 'en', 'score': 0.05422825738787651}]
+# Output: [
+#     {'lang': 'ru', 'score': 0.39008623361587524},
+#     {'lang': 'zh', 'score': 0.18235979974269867},
+# ]
 ```
 
-### Splitting text by language 🌐
+### Convenient `detect_language` Function
 
-check out the [split-lang](https://github.com/DoodleBears/split-lang).
+```python
+from fast_langdetect import detect_language
+
+# Single language detection
+print(detect_language("Hello, world!"))
+# Output: EN
+
+print(detect_language("Привет, мир!"))
+# Output: RU
+
+print(detect_language("你好，世界！"))
+# Output: ZH
+```
+
+### Splitting Text by Language 🌐
+
+For text splitting based on language, please refer to the [split-lang](https://github.com/DoodleBears/split-lang)
+repository.
 
 ## Accuracy 🎯
 
-References to the [benchmark](https://github.com/zafercavdar/fasttext-langdetect#benchmark)
+For detailed benchmark results, refer
+to [zafercavdar/fasttext-langdetect#benchmark](https://github.com/zafercavdar/fasttext-langdetect#benchmark).

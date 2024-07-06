@@ -7,9 +7,8 @@ authors = [
 ]
 dependencies = [
     "fasttext-wheel>=0.9.2",
-    "requests>=2.31.0",
     "robust-downloader>=0.0.2",
-    "numpy>=1.26.4,<2.0.0",
+    "langdetect>=1.0.9",
 ]
 requires-python = ">=3.9,<3.13"
 readme = "README.md"
