@@ -1,0 +1,8 @@
+# https://github.com/LlmKira/contributor/blob/main/.nerve.toml
+contributor = "68baa075-303d-47a8-80ca-b6a5a0fa8e3a"
+
+language = "English"
+issue_auto_label = true
+issue_title_format = true
+issue_body_format = false
+issue_close_with_report = true
