@@ -1,6 +1,6 @@
 [project]
 name = "fast-langdetect"
-version = "0.2.0"
+version = "0.2.1"
 description = "Quickly detect text language and segment language"
 authors = [
     { name = "sudoskys", email = "coldlando@hotmail.com" },
@@ -8,6 +8,8 @@ authors = [
 dependencies = [
     "fasttext-wheel>=0.9.2",
     "robust-downloader>=0.0.2",
+    "numpy>=1.26.4,<2.0.0",
+    "requests>=2.30.0",
 ]
 requires-python = ">=3.9,<3.13"
 readme = "README.md"
