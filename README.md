@@ -45,22 +45,37 @@ model.
 
 ### Native API (Recommended)
 
+> [!NOTE]
+> This function assumes to be given a single line of text. *You should remove `\n` characters before passing the text.*
+> If the sample is too long or too short, the accuracy will decrease (for example, in the case of too short, Chinese
+> will be predicted as Japanese).
+
 ```python
 from fast_langdetect import detect, detect_multilingual
 
 # Single language detection
 print(detect("Hello, world!"))
-# Output: {'lang': 'en', 'score': 0.1520957201719284}
+# Output: {'lang': 'en', 'score': 0.12450417876243591}
+
+multiline_text = """
+Hello, world!
+This is a multiline text.
+But we need remove `\n` characters or it will raise an ValueError.
+"""
+multiline_text = multiline_text.replace("\n", "")
+print(detect(multiline_text))
+# Output: {'lang': 'en', 'score': 0.8509423136711121}
 
 print(detect("Привет, мир!")["lang"])
 # Output: ru
 
 # Multi-language detection
 print(detect_multilingual("Hello, world!你好世界!Привет, мир!"))
-# Output: [
-#     {'lang': 'ru', 'score': 0.39008623361587524},
-#     {'lang': 'zh', 'score': 0.18235979974269867},
-# ]
+# Output: [{'lang': 'ja', 'score': 0.32009604573249817}, {'lang': 'uk', 'score': 0.27781224250793457}, {'lang': 'zh', 'score': 0.17542070150375366}, {'lang': 'sr', 'score': 0.08751443773508072}, {'lang': 'bg', 'score': 0.05222449079155922}]
+
+# Multi-language detection with low memory mode disabled
+print(detect_multilingual("Hello, world!你好世界!Привет, мир!", low_memory=False))
+# Output: [{'lang': 'ru', 'score': 0.39008623361587524}, {'lang': 'zh', 'score': 0.18235979974269867}, {'lang': 'ja', 'score': 0.08473210036754608}, {'lang': 'sr', 'score': 0.057975586503744125}, {'lang': 'en', 'score': 0.05422825738787651}]
 ```
 
 ### Convenient `detect_language` Function

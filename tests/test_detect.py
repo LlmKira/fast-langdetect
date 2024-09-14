@@ -31,3 +31,11 @@ def test_detect_totally():
     assert detect_language(
         "這些機構主辦的課程，多以基本電腦使用為主，例如文書處理、中文輸入、互聯網應用等"
     ) == "ZH", "ft_detect error"
+
+
+def test_failed_example():
+    from fast_langdetect import detect
+    try:
+        detect("hello world\nNEW LINE", low_memory=True)
+    except Exception as e:
+        assert isinstance(e, Exception), "ft_detect exception error"
