@@ -11,6 +11,8 @@ Facebook. This package is 80x faster than traditional methods and offers 95% acc
 
 It supports Python versions 3.9 to 3.12.
 
+Support offline usage.
+
 This project builds upon [zafercavdar/fasttext-langdetect](https://github.com/zafercavdar/fasttext-langdetect#benchmark)
 with enhancements in packaging.
 
@@ -51,18 +53,24 @@ model.
 > will be predicted as Japanese).
 
 ```python
+
 from fast_langdetect import detect, detect_multilingual
 
 # Single language detection
 print(detect("Hello, world!"))
 # Output: {'lang': 'en', 'score': 0.12450417876243591}
 
+# `use_strict_mode` determines whether the model loading process should enforce strict conditions before using fallback options.
+# If `use_strict_mode` is set to True, we will load only the selected model, not the fallback model.
+print(detect("Hello, world!", low_memory=False, use_strict_mode=True))
+
+# How to deal with multiline text
 multiline_text = """
 Hello, world!
 This is a multiline text.
 But we need remove `\n` characters or it will raise an ValueError.
 """
-multiline_text = multiline_text.replace("\n", "")
+multiline_text = multiline_text.replace("\n", "")  # NOTE:ITS IMPORTANT TO REMOVE \n CHARACTERS
 print(detect(multiline_text))
 # Output: {'lang': 'en', 'score': 0.8509423136711121}
 
