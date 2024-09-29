@@ -91,9 +91,18 @@ def load_model(low_memory: bool = False,
         return load_local_small_model()
 
     # Path for the large model
-    model_path = Path(CACHE_DIRECTORY) / "lid.176.bin"
+    large_model_name = "lid.176.bin"
+    model_path = Path(CACHE_DIRECTORY) / large_model_name
 
+    # If the large model is already present, load it
     if model_path.exists():
+        # Model cant be dir
+        if model_path.is_dir():
+            try:
+                model_path.rmdir()
+            except Exception as e:
+                logger.error(f"Failed to remove the directory '{model_path}': {e}")
+                raise DetectError(f"Unexpected directory found in large model file path '{model_path}': {e}")
         # Attempt to load large model
         loaded_model = load_large_model()
         if loaded_model:
@@ -106,7 +115,7 @@ def load_model(low_memory: bool = False,
         download(
             url=model_url,
             folder=CACHE_DIRECTORY,
-            filename="lid.176.bin",
+            filename=large_model_name,
             proxy=download_proxy,
             retry_max=3,
             timeout=20
