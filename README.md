@@ -11,6 +11,8 @@ Facebook. This package is 80x faster than traditional methods and offers 95% acc
 
 It supports Python versions 3.9 to 3.12.
 
+Support offline usage.
+
 This project builds upon [zafercavdar/fasttext-langdetect](https://github.com/zafercavdar/fasttext-langdetect#benchmark)
 with enhancements in packaging.
 
