@@ -5,6 +5,7 @@
 # @Software: PyCharm
 import logging
 import os
+from enum import Enum
 from pathlib import Path
 from typing import Dict, Union, List, Optional, Any
 
@@ -12,7 +13,6 @@ import fasttext
 from robust_downloader import download
 
 logger = logging.getLogger(__name__)
-MODELS = {"low_mem": None, "high_mem": None}
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", "/tmp/fasttext-langdetect")
 LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 
@@ -23,52 +23,90 @@ except Exception:
     pass
 
 
+class ModelType(Enum):
+    LOW_MEMORY = "low_mem"
+    HIGH_MEMORY = "high_mem"
+
+
+class ModelCache:
+    def __init__(self):
+        self._models = {}
+
+    def get_model(self, model_type: ModelType) -> Optional[fasttext.FastText]:
+        return self._models.get(model_type)
+
+    def set_model(self, model_type: ModelType, model: fasttext.FastText):
+        self._models[model_type] = model
+
+
+model_cache = ModelCache()
+
+
 class DetectError(Exception):
     """Custom exception for language detection errors."""
     pass
 
 
-def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -> fasttext.FastText:
+def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -> "fasttext.FastText._FastText":
     """
     Load the FastText model based on memory preference.
 
     :param low_memory: Indicates whether to load a smaller, memory-efficient model
     :param download_proxy: Proxy to use for downloading the large model if necessary
     :return: Loaded FastText model
-    :raises LanguageDetectionError: If the model cannot be loaded
+    :raises DetectError: If the model cannot be loaded
     """
-    model_dict_key = "low_mem" if low_memory else "high_mem"
-    if MODELS[model_dict_key]:
-        return MODELS[model_dict_key]
+    model_type = ModelType.LOW_MEMORY if low_memory else ModelType.HIGH_MEMORY
+
+    # If the model is already loaded, return it
+    cached_model = model_cache.get_model(model_type)
+    if cached_model:
+        return cached_model
+
+    def load_local_small_model():
+        """Try to load the local small model."""
+        try:
+            _loaded_model = fasttext.load_model(str(LOCAL_SMALL_MODEL_PATH))
+            model_cache.set_model(ModelType.LOW_MEMORY, _loaded_model)
+            return _loaded_model
+        except Exception as e:
+            logger.error(f"Failed to load the local small model '{LOCAL_SMALL_MODEL_PATH}': {e}")
+            raise DetectError("Unable to load low-memory model from local resources.")
 
     if low_memory:
-        model_path = LOCAL_SMALL_MODEL_PATH
-    else:
-        model_path = Path(CACHE_DIRECTORY) / "lid.176.bin"
-        if not model_path.exists():
-            model_url = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
-            try:
-                logger.info(f"Downloading large model from {model_url} to {model_path}")
-                download(
-                    url=model_url,
-                    folder=CACHE_DIRECTORY,
-                    filename="lid.176.bin",
-                    proxy=download_proxy,
-                    retry_max=3,
-                    timeout=20
-                )
-            except Exception as e:
-                logger.error(f"Failed to download the large model: {e}")
-                raise DetectError("Unable to download the large model due to network issues.")
+        # Attempt to load the local small model
+        return load_local_small_model()
+
+    # Path for the large model
+    model_path = Path(CACHE_DIRECTORY) / "lid.176.bin"
+
+    if not model_path.exists():
+        model_url = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
+        try:
+            logger.info(f"Downloading large model from {model_url} to {model_path}")
+            download(
+                url=model_url,
+                folder=CACHE_DIRECTORY,
+                filename="lid.176.bin",
+                proxy=download_proxy,
+                retry_max=3,
+                timeout=20
+            )
+        except Exception as e:
+            logger.error(f"Failed to download the large model: {e}")
+            logger.info("Attempting to fall back to local small model.")
+            # Fallback to the small model if download fails
+            return load_local_small_model()
 
     try:
         loaded_model = fasttext.load_model(str(model_path))
-        MODELS[model_dict_key] = loaded_model
+        model_cache.set_model(ModelType.HIGH_MEMORY, loaded_model)
         return loaded_model
     except Exception as e:
-        logger.error(f"Failed to load the model '{model_path}': {e}")
-        model_type = "local small" if low_memory else "large"
-        raise DetectError(f"Unable to load the {model_type} model due to an error.")
+        logger.error(f"Failed to load the large model '{model_path}': {e}")
+        logger.info("Attempting to fall back to local small model.")
+        # Fallback to small model if loading large model fails
+        return load_local_small_model()
 
 
 def detect(text: str, *,
@@ -77,7 +115,8 @@ def detect(text: str, *,
            ) -> Dict[str, Union[str, float]]:
     """
     Detect the language of a text using FastText.
-
+    This function assumes to be given a single line of text. We split words on whitespace (space, newline, tab, vertical tab) and the control characters carriage return, formfeed and the null character.
+    If the model is not supervised, this function will throw a ValueError.
     :param text: The text for language detection
     :param low_memory: Whether to use a memory-efficient model
     :param model_download_proxy: Download proxy for the model if needed
@@ -103,6 +142,9 @@ def detect_multilingual(text: str, *,
                         ) -> List[Dict[str, Any]]:
     """
     Detect multiple potential languages and their probabilities in a given text.
+    k controls the number of returned labels. A choice of 5, will return the 5 most probable labels. By default this returns only the most likely label and probability. threshold filters the returned labels by a threshold on probability. A choice of 0.5 will return labels with at least 0.5 probability. k and threshold will be applied together to determine the returned labels.
+    This function assumes to be given a single line of text. We split words on whitespace (space, newline, tab, vertical tab) and the control characters carriage return, formfeed and the null character.
+    If the model is not supervised, this function will throw a ValueError.
 
     :param text: The text for language detection
     :param low_memory: Whether to use a memory-efficient model
