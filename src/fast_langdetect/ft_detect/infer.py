@@ -32,10 +32,10 @@ class ModelCache:
     def __init__(self):
         self._models = {}
 
-    def get_model(self, model_type: ModelType) -> Optional[fasttext.FastText]:
+    def get_model(self, model_type: ModelType) -> Optional["fasttext.FastText._FastText"]:
         return self._models.get(model_type)
 
-    def set_model(self, model_type: ModelType, model: fasttext.FastText):
+    def set_model(self, model_type: ModelType, model: "fasttext.FastText._FastText"):
         self._models[model_type] = model
 
 
