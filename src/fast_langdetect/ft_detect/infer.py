@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", "/tmp/fasttext-langdetect")
 LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 
+# Global variable for strict loading
+USE_STRICT_MODE = False
+
 # Suppress FastText output if possible
 try:
     fasttext.FastText.eprint = lambda *args, **kwargs: None
@@ -70,8 +73,11 @@ def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -
             model_cache.set_model(ModelType.LOW_MEMORY, _loaded_model)
             return _loaded_model
         except Exception as e:
-            logger.error(f"Failed to load the local small model '{LOCAL_SMALL_MODEL_PATH}': {e}")
-            raise DetectError("Unable to load low-memory model from local resources.")
+            logger.error(
+                f"Failed to load the local small model '{LOCAL_SMALL_MODEL_PATH}': {e}, report this to https://github.com/LlmKira/fast-langdetect/issues"
+            )
+            raise DetectError(
+                "Unable to load low-memory model from local resources.")
 
     if low_memory:
         # Attempt to load the local small model
@@ -80,7 +86,27 @@ def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -
     # Path for the large model
     model_path = Path(CACHE_DIRECTORY) / "lid.176.bin"
 
-    if not model_path.exists():
+    def load_large_model():
+        if model_path.exists():
+            try:
+                loaded_model = fasttext.load_model(str(model_path))
+                model_cache.set_model(ModelType.HIGH_MEMORY, loaded_model)
+                return loaded_model
+            except Exception as e:
+                logger.error(f"Failed to load the large model '{model_path}': {e}")
+                if USE_STRICT_MODE:
+                    raise DetectError("Strict load enabled: Unable to load the large model.")
+                else:
+                    logger.info("Attempting to fall back to local small model.")
+        return None
+
+    # Attempt to load large model
+    loaded_model = load_large_model()
+    if loaded_model:
+        return loaded_model
+
+    if not USE_STRICT_MODE:
+        # If not strict or download fails, attempt to download
         model_url = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
         try:
             logger.info(f"Downloading large model from {model_url} to {model_path}")
@@ -92,21 +118,17 @@ def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -
                 retry_max=3,
                 timeout=20
             )
+            # Try loading the model again after download
+            return load_large_model()
         except Exception as e:
             logger.error(f"Failed to download the large model: {e}")
             logger.info("Attempting to fall back to local small model.")
-            # Fallback to the small model if download fails
-            return load_local_small_model()
 
-    try:
-        loaded_model = fasttext.load_model(str(model_path))
-        model_cache.set_model(ModelType.HIGH_MEMORY, loaded_model)
-        return loaded_model
-    except Exception as e:
-        logger.error(f"Failed to load the large model '{model_path}': {e}")
-        logger.info("Attempting to fall back to local small model.")
-        # Fallback to small model if loading large model fails
+    # Fallback to the small model if download fails and not in strict mode
+    if not USE_STRICT_MODE:
         return load_local_small_model()
+
+    raise DetectError("Strict load enabled: Unable to download or load the large model.")
 
 
 def detect(text: str, *,
