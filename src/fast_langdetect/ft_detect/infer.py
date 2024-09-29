@@ -12,8 +12,6 @@ from typing import Dict, Union, List, Optional, Any
 import fasttext
 from robust_downloader import download
 
-from fast_langdetect.settings import USE_STRICT_MODE
-
 logger = logging.getLogger(__name__)
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", "/tmp/fasttext-langdetect")
 LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
@@ -49,12 +47,14 @@ class DetectError(Exception):
     pass
 
 
-def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -> "fasttext.FastText._FastText":
+def load_model(low_memory: bool = False, download_proxy: Optional[str] = None,
+               use_strict_mode: bool = False) -> "fasttext.FastText._FastText":
     """
     Load the FastText model based on memory preference.
 
     :param low_memory: Indicates whether to load a smaller, memory-efficient model
     :param download_proxy: Proxy to use for downloading the large model if necessary
+    :param use_strict_mode: If enabled, strictly loads large model or raises error if it fails
     :return: Loaded FastText model
     :raises DetectError: If the model cannot be loaded
     """
@@ -72,11 +72,8 @@ def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -
             model_cache.set_model(ModelType.LOW_MEMORY, _loaded_model)
             return _loaded_model
         except Exception as e:
-            logger.error(
-                f"Failed to load the local small model '{LOCAL_SMALL_MODEL_PATH}': {e}, report this to https://github.com/LlmKira/fast-langdetect/issues"
-            )
-            raise DetectError(
-                "Unable to load low-memory model from local resources.")
+            logger.error(f"Failed to load the local small model '{LOCAL_SMALL_MODEL_PATH}': {e}")
+            raise DetectError("Unable to load low-memory model from local resources.")
 
     if low_memory:
         # Attempt to load the local small model
@@ -93,8 +90,8 @@ def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -
                 return loaded_model
             except Exception as e:
                 logger.error(f"Failed to load the large model '{model_path}': {e}")
-                if USE_STRICT_MODE:
-                    raise DetectError("Strict load enabled: Unable to load the large model.")
+                if use_strict_mode:
+                    raise DetectError("Strict mode enabled: Unable to load the large model.")
                 else:
                     logger.info("Attempting to fall back to local small model.")
         return None
@@ -104,7 +101,7 @@ def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -
     if loaded_model:
         return loaded_model
 
-    if not USE_STRICT_MODE:
+    if not use_strict_mode:
         # If not strict or download fails, attempt to download
         model_url = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
         try:
@@ -124,15 +121,16 @@ def load_model(low_memory: bool = False, download_proxy: Optional[str] = None) -
             logger.info("Attempting to fall back to local small model.")
 
     # Fallback to the small model if download fails and not in strict mode
-    if not USE_STRICT_MODE:
+    if not use_strict_mode:
         return load_local_small_model()
 
-    raise DetectError("Strict load enabled: Unable to download or load the large model.")
+    raise DetectError("Strict mode enabled: Unable to download or load the large model.")
 
 
 def detect(text: str, *,
            low_memory: bool = True,
-           model_download_proxy: Optional[str] = None
+           model_download_proxy: Optional[str] = None,
+           use_strict_mode: bool = False
            ) -> Dict[str, Union[str, float]]:
     """
     Detect the language of a text using FastText.
@@ -141,10 +139,11 @@ def detect(text: str, *,
     :param text: The text for language detection
     :param low_memory: Whether to use a memory-efficient model
     :param model_download_proxy: Download proxy for the model if needed
+    :param use_strict_mode: If enabled, strictly loads large model or raises error if it fails
     :return: A dictionary with detected language and confidence score
     :raises LanguageDetectionError: If detection fails
     """
-    model = load_model(low_memory=low_memory, download_proxy=model_download_proxy)
+    model = load_model(low_memory=low_memory, download_proxy=model_download_proxy, use_strict_mode=use_strict_mode)
     labels, scores = model.predict(text)
     language_label = labels[0].replace("__label__", '')
     confidence_score = min(float(scores[0]), 1.0)
@@ -159,12 +158,13 @@ def detect_multilingual(text: str, *,
                         model_download_proxy: Optional[str] = None,
                         k: int = 5,
                         threshold: float = 0.0,
-                        on_unicode_error: str = "strict"
+                        on_unicode_error: str = "strict",
+                        use_strict_mode: bool = False
                         ) -> List[Dict[str, Any]]:
     """
     Detect multiple potential languages and their probabilities in a given text.
-    k controls the number of returned labels. A choice of 5, will return the 5 most probable labels. By default this returns only the most likely label and probability. threshold filters the returned labels by a threshold on probability. A choice of 0.5 will return labels with at least 0.5 probability. k and threshold will be applied together to determine the returned labels.
-    This function assumes to be given a single line of text. We split words on whitespace (space, newline, tab, vertical tab) and the control characters carriage return, formfeed and the null character.
+    k controls the number of returned labels. A choice of 5, will return the 5 most probable labels. By default, this returns only the most likely label and probability. threshold filters the returned labels by a threshold on probability. A choice of 0.5 will return labels with at least 0.5 probability. k and threshold will be applied together to determine the returned labels.
+    This function assumes to be given a single line of text. We split words on whitespace (space, newline, tab, vertical tab) and the control characters carriage return, formfeed, and the null character.
     If the model is not supervised, this function will throw a ValueError.
 
     :param text: The text for language detection
@@ -173,10 +173,11 @@ def detect_multilingual(text: str, *,
     :param k: Number of top language predictions to return
     :param threshold: Minimum score threshold for predictions
     :param on_unicode_error: Error handling for Unicode errors
+    :param use_strict_mode: If enabled, strictly loads large model or raises error if it fails
     :return: A list of dictionaries, each containing a language and its confidence score
     :raises LanguageDetectionError: If detection fails
     """
-    model = load_model(low_memory=low_memory, download_proxy=model_download_proxy)
+    model = load_model(low_memory=low_memory, download_proxy=model_download_proxy, use_strict_mode=use_strict_mode)
     labels, scores = model.predict(text, k=k, threshold=threshold, on_unicode_error=on_unicode_error)
     results = []
     for label, score in zip(labels, scores):

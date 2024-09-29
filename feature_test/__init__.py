@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/1/18 上午11:41
 # @Author  : sudoskys
-
-
 from fast_langdetect import detect, detect_multilingual, detect_language
 
 # 测试繁体，简体，日文，英文，韩文，法文，德文，西班牙文
 print(detect_multilingual("Hello, world!你好世界!Привет, мир!", low_memory=False))
-print(detect_multilingual("Hello, world!你好世界!Привет, мир!"))
+print(
+    detect_multilingual("Hello, world!你好世界!Привет, мир!", low_memory=True, use_strict_mode=True)
+)
 # [{'lang': 'ja', 'score': 0.32009604573249817}, {'lang': 'uk', 'score': 0.27781224250793457}, {'lang': 'zh', 'score': 0.17542070150375366}, {'lang': 'sr', 'score': 0.08751443773508072}, {'lang': 'bg', 'score': 0.05222449079155922}]
 print(detect("hello world"))
 print(detect("你好世界"))
