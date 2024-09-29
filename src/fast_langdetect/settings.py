@@ -1,0 +1,1 @@
+USE_STRICT_MODE = False

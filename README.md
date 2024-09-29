@@ -1,3 +1,5 @@
+from fasttext_pybind import fasttext
+
 # fast-langdetect 🚀
 
 [![PyPI version](https://badge.fury.io/py/fast-langdetect.svg)](https://badge.fury.io/py/fast-langdetect)
@@ -51,8 +53,12 @@ model.
 > will be predicted as Japanese).
 
 ```python
+
+import fast_langdetect
+
 from fast_langdetect import detect, detect_multilingual
 
+fast_langdetect.settings.USE_STRICT_MODE = False
 # Single language detection
 print(detect("Hello, world!"))
 # Output: {'lang': 'en', 'score': 0.12450417876243591}

@@ -12,12 +12,11 @@ from typing import Dict, Union, List, Optional, Any
 import fasttext
 from robust_downloader import download
 
+from fast_langdetect.settings import USE_STRICT_MODE
+
 logger = logging.getLogger(__name__)
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", "/tmp/fasttext-langdetect")
 LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
-
-# Global variable for strict loading
-USE_STRICT_MODE = False
 
 # Suppress FastText output if possible
 try:
