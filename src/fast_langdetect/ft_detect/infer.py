@@ -38,8 +38,11 @@ class ModelCache:
     def set_model(self, model_type: ModelType, model: "fasttext.FastText._FastText"):
         self._models[model_type] = model
 
+    def clear(self):
+        self._models.clear()
 
-_model_cache = ModelCache()
+
+model_cache = ModelCache()
 
 
 class DetectError(Exception):
@@ -62,7 +65,7 @@ def load_model(low_memory: bool = False,
     model_type = ModelType.LOW_MEMORY if low_memory else ModelType.HIGH_MEMORY
 
     # If the model is already loaded, return it
-    cached_model = _model_cache.get_model(model_type)
+    cached_model = model_cache.get_model(model_type)
     if cached_model:
         return cached_model
 
@@ -70,7 +73,7 @@ def load_model(low_memory: bool = False,
         """Try to load the local small model."""
         try:
             _loaded_model = fasttext.load_model(str(LOCAL_SMALL_MODEL_PATH))
-            _model_cache.set_model(ModelType.LOW_MEMORY, _loaded_model)
+            model_cache.set_model(ModelType.LOW_MEMORY, _loaded_model)
             return _loaded_model
         except Exception as e:
             logger.error(f"Failed to load the local small model '{LOCAL_SMALL_MODEL_PATH}': {e}")
@@ -80,7 +83,7 @@ def load_model(low_memory: bool = False,
         """Try to load the large model."""
         try:
             loaded_model = fasttext.load_model(str(model_path))
-            _model_cache.set_model(ModelType.HIGH_MEMORY, loaded_model)
+            model_cache.set_model(ModelType.HIGH_MEMORY, loaded_model)
             return loaded_model
         except Exception as e:
             logger.error(f"Failed to load the large model '{model_path}': {e}")
