@@ -7,25 +7,25 @@
 
 def test_muti_detect():
     from fast_langdetect import detect_multilingual
-    result = detect_multilingual("hello world", low_memory=True)
+    result = detect_multilingual("hello world", low_memory=True, use_strict_mode=True)
     assert result[0].get("lang") == "en", "ft_detect error"
 
 
 def test_large():
     from fast_langdetect import detect_multilingual
-    result = detect_multilingual("hello world", low_memory=True)
+    result = detect_multilingual("hello world", low_memory=True, use_strict_mode=True)
     assert result[0].get("lang") == "en", "ft_detect error"
-    result = detect_multilingual("你好世界", low_memory=False)
+    result = detect_multilingual("你好世界", low_memory=False, use_strict_mode=True)
     assert result[0].get("lang") == "zh", "ft_detect error"
 
 
 def test_detect():
     from fast_langdetect import detect
-    assert detect("hello world")["lang"] == "en", "ft_detect error"
-    assert detect("你好世界")["lang"] == "zh", "ft_detect error"
-    assert detect("こんにちは世界")["lang"] == "ja", "ft_detect error"
-    assert detect("안녕하세요 세계")["lang"] == "ko", "ft_detect error"
-    assert detect("Bonjour le monde")["lang"] == "fr", "ft_detect error"
+    assert detect("hello world", low_memory=False, use_strict_mode=True)["lang"] == "en", "ft_detect error"
+    assert detect("你好世界", low_memory=True, use_strict_mode=True)["lang"] == "zh", "ft_detect error"
+    assert detect("こんにちは世界", low_memory=False, use_strict_mode=True)["lang"] == "ja", "ft_detect error"
+    assert detect("안녕하세요 세계", low_memory=True, use_strict_mode=True)["lang"] == "ko", "ft_detect error"
+    assert detect("Bonjour le monde", low_memory=False, use_strict_mode=True)["lang"] == "fr", "ft_detect error"
 
 
 def test_detect_totally():
