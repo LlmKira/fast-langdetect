@@ -6,21 +6,20 @@
 
 ## Overview
 
-**fast-langdetect** provides ultra-fast and highly accurate language detection based on FastText, a library developed by
-Facebook. This package is 80x faster than traditional methods and offers 95% accuracy.
+**`fast-langdetect`** is an ultra-fast and highly accurate language detection library based on **FastText**, a library developed by Facebook. Its incredible speed and accuracy make it 80x faster than conventional methods and deliver up to **95% accuracy**.
 
-It supports Python versions 3.9 to 3.12.
+- **Supported Python Versions:** Python `3.9` to `3.12`.
+- Works **offline**  in low memory mode
+- No `numpy` required (thanks to @dalf).
 
-Support offline usage.
+> ### Background
+> 
+> This project builds upon [zafercavdar/fasttext-langdetect](https://github.com/zafercavdar/fasttext-langdetect#benchmark) with enhancements in packaging.
+> For more information about the underlying model, see the official FastText documentation: [Language Identification](https://fasttext.cc/docs/en/language-identification.html).
 
-This project builds upon [zafercavdar/fasttext-langdetect](https://github.com/zafercavdar/fasttext-langdetect#benchmark)
-with enhancements in packaging.
-
-For more information on the underlying FastText model, refer to the official
-documentation: [FastText Language Identification](https://fasttext.cc/docs/en/language-identification.html).
-
-> [!NOTE]
-> This library requires over 200MB of memory to use in low memory mode.
+> ### Possible memory usage
+> 
+> *This library requires at least **200MB memory** in low-memory mode.*
 
 ## Installation 💻
 
@@ -40,20 +39,17 @@ pdm add fast-langdetect
 
 ## Usage 🖥️
 
-For optimal performance and accuracy in language detection, use `detect(text, low_memory=False)` to load the larger
-model.
+In scenarios where accuracy is important, you should not rely on the detection results of small models, use `low_memory=False` to load larger models!
 
-> The model will be downloaded to the `/tmp/fasttext-langdetect` directory upon first use.
+### Prerequisites
+
+- The “/n” character in the argument string must be removed before calling the function.
+- If the sample is too long or too short, the accuracy will be reduced (e.g. if it is too short, Chinese will be predicted as Japanese).
+- The model will be downloaded to the `/tmp/fasttext-langdetect` directory upon first use.
 
 ### Native API (Recommended)
 
-> [!NOTE]
-> This function assumes to be given a single line of text. *You should remove `\n` characters before passing the text.*
-> If the sample is too long or too short, the accuracy will decrease (for example, in the case of too short, Chinese
-> will be predicted as Japanese).
-
 ```python
-
 from fast_langdetect import detect, detect_multilingual
 
 # Single language detection
@@ -69,15 +65,17 @@ multiline_text = """
 Hello, world!
 This is a multiline text.
 But we need remove `\n` characters or it will raise an ValueError.
+REMOVE \n
 """
-multiline_text = multiline_text.replace("\n", "")  # NOTE:ITS IMPORTANT TO REMOVE \n CHARACTERS
+multiline_text = multiline_text.replace("\n", "")  
 print(detect(multiline_text))
 # Output: {'lang': 'en', 'score': 0.8509423136711121}
 
 print(detect("Привет, мир!")["lang"])
 # Output: ru
 
-# Multi-language detection
+# Multi-language detection with low memory mode enabled
+# The accuracy is not as good as it should be
 print(detect_multilingual("Hello, world!你好世界!Привет, мир!"))
 # Output: [{'lang': 'ja', 'score': 0.32009604573249817}, {'lang': 'uk', 'score': 0.27781224250793457}, {'lang': 'zh', 'score': 0.17542070150375366}, {'lang': 'sr', 'score': 0.08751443773508072}, {'lang': 'bg', 'score': 0.05222449079155922}]
 
@@ -85,6 +83,10 @@ print(detect_multilingual("Hello, world!你好世界!Привет, мир!"))
 print(detect_multilingual("Hello, world!你好世界!Привет, мир!", low_memory=False))
 # Output: [{'lang': 'ru', 'score': 0.39008623361587524}, {'lang': 'zh', 'score': 0.18235979974269867}, {'lang': 'ja', 'score': 0.08473210036754608}, {'lang': 'sr', 'score': 0.057975586503744125}, {'lang': 'en', 'score': 0.05422825738787651}]
 ```
+
+#### Fallbacks
+
+We provide a fallback mechanism: when `use_strict_mode=False`, if the program fails to load the **large model** (`low_memory=False`), it will fall back to the offline **small model** to complete the prediction task.
 
 ### Convenient `detect_language` Function
 
