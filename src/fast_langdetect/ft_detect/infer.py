@@ -52,10 +52,10 @@ def download_model(
     :raises DetectError: If download fails
     """
     if save_path.exists():
-        logger.info(f"Model already exists at {save_path}. Skipping download.")
+        logger.info(f"fast-langdetect:Model already exists at {save_path}. Skipping download.")
         return
 
-    logger.info(f"Downloading FastText model from {download_url} to {save_path}")
+    logger.info(f"fast-langdetect:Downloading FastText model from {download_url} to {save_path}")
     try:
         download(
             url=download_url,
@@ -66,7 +66,7 @@ def download_model(
             timeout=30,
         )
     except Exception as e:
-        logger.error(f"Failed to download FastText model from {download_url}: {e}")
+        logger.error(f"fast-langdetect:Failed to download FastText model from {download_url}: {e}")
         raise DetectError(f"Unable to download model from {download_url}")
 
 
@@ -94,7 +94,7 @@ def load_fasttext_model(
         # Load FastText model
         return fasttext.load_model(str(model_path))
     except Exception as e:
-        logger.error(f"Failed to load FastText model from {model_path}: {e}")
+        logger.error(f"fast-langdetect:Failed to load FastText model from {model_path}: {e}")
         raise DetectError(f"Failed to load FastText model: {e}")
 
 
@@ -131,13 +131,13 @@ def load_model(
         _model_cache.cache_model(cache_key, model)
         return model
     except Exception as e:
-        logger.error(f"Failed to load model ({'low' if low_memory else 'high'} memory): {e}")
+        logger.error(f"fast-langdetect:Failed to load model ({'low' if low_memory else 'high'} memory): {e}")
         if use_strict_mode:
-            raise DetectError("Failed to load FastText model.")
+            raise DetectError("Failed to load FastText model.") from e
         elif not low_memory:
             logger.info("Falling back to low-memory model...")
             return load_model(low_memory=True, use_strict_mode=True)
-        raise
+        raise e
 
 
 def detect(
@@ -169,7 +169,7 @@ def detect(
         confidence_score = min(float(scores[0]), 1.0)
         return {"lang": language_label, "score": confidence_score}
     except Exception as e:
-        logger.error(f"Error during language detection: {e}")
+        logger.error(f"fast-langdetect:Error during language detection: {e}")
         raise DetectError("Language detection failed.")
 
 
@@ -199,5 +199,5 @@ def detect_multilingual(
         ]
         return sorted(results, key=lambda x: x["score"], reverse=True)
     except Exception as e:
-        logger.error(f"Error during multilingual detection: {e}")
+        logger.error(f"fast-langdetect:Error during multilingual detection: {e}")
         raise DetectError("Multilingual detection failed.")
