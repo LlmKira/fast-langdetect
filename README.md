@@ -6,10 +6,10 @@
 
 ## Overview
 
-**`fast-langdetect`** is an ultra-fast and highly accurate language detection library based on **FastText**, a library developed by Facebook. Its incredible speed and accuracy make it 80x faster than conventional methods and deliver up to **95% accuracy**.
+**`fast-langdetect`** is an ultra-fast and highly accurate language detection library based on FastText, a library developed by Facebook. Its incredible speed and accuracy make it 80x faster than conventional methods and deliver up to 95% accuracy.
 
-- **Supported Python Versions:** Python `3.9` to `3.12`.
-- Works **offline**  in low memory mode
+- Supported Python `3.9` to `3.12`.
+- Works offline  in low memory mode
 - No `numpy` required (thanks to @dalf).
 
 > ### Background
