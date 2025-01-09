@@ -15,12 +15,6 @@ logger = logging.getLogger(__name__)
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", "/tmp/fasttext-langdetect")
 LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 
-# Suppress FastText warnings
-try:
-    fasttext.FastText.eprint = lambda *args, **kwargs: None
-except Exception:  # noqa
-    pass
-
 FASTTEXT_LARGE_MODEL_URL = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 FASTTEXT_LARGE_MODEL_NAME = "lid.176.bin"
 
