@@ -39,7 +39,7 @@ pdm add fast-langdetect
 
 ## Usage 🖥️
 
-In scenarios where accuracy is important, you should not rely on the detection results of small models, use `low_memory=False` to download larger models!
+In scenarios **where accuracy is important**, you should not rely on the detection results of small models, use `low_memory=False` to download larger models!
 
 ### Prerequisites
 
