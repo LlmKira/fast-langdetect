@@ -4,8 +4,11 @@
 [metadata]
 groups = ["default", "dev"]
 strategy = ["cross_platform", "inherit_metadata"]
-lock_version = "4.4.1"
-content_hash = "sha256:b9988fd09b2f97cee5f04acb9fd5369d403f48f289ffe9ae67f7bf58cb93b72d"
+lock_version = "4.5.0"
+content_hash = "sha256:147aca5c816f5e9d5ad5339923abc1c5c07eb6e2a699fc36c923044c7ff7bb53"
+
+[[metadata.targets]]
+requires_python = ">=3.9,<3.13"
 
 [[package]]
 name = "certifi"
