@@ -2,7 +2,7 @@
 # @Time    : 2024/01/17 下午08:30
 # @Author  : sudoskys
 # @File    : infer.py
-# @Software: PyCharm
+import hashlib
 import logging
 import os
 from pathlib import Path
@@ -38,8 +38,6 @@ class ModelManager:
 
 
 _model_cache = ModelManager()
-
-import hashlib
 
 
 def calculate_md5(file_path, chunk_size=8192):
