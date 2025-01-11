@@ -192,12 +192,15 @@ def detect(
 ) -> Dict[str, Union[str, float]]:
     """
     Detect the language of a text using FastText.
-    This function assumes to be given a single line of text. We split words on whitespace (space, newline, tab, vertical tab) and the control characters carriage return, formfeed and the null character.
-    If the model is not supervised, this function will throw a ValueError.
+
+    - You MUST manually remove line breaks(`n`) from the text to be processed in advance, otherwise a ValueError is raised.
+
+    - In scenarios **where accuracy is important**, you should not rely on the detection results of small models, use `low_memory=False` to download larger models!
+
     :param text: The text for language detection
-    :param low_memory: Whether to use a memory-efficient model
+    :param low_memory: Whether to use the compressed version of the model (https://fasttext.cc/docs/en/language-identification.html)
     :param model_download_proxy: Download proxy for the model if needed
-    :param use_strict_mode: If it was enabled, strictly loads large model or raises error if it fails
+    :param use_strict_mode: When this parameter is enabled, the fallback after loading failure will be disabled.
     :return: A dictionary with detected language and confidence score
     :raises LanguageDetectionError: If detection fails
     """
@@ -227,6 +230,18 @@ def detect_multilingual(
 ) -> List[Dict[str, Any]]:
     """
     Detect the top-k probable languages for a given text.
+
+    - You MUST manually remove line breaks(`n`) from the text to be processed in advance, otherwise a ValueError is raised.
+
+    - In scenarios **where accuracy is important**, you should not rely on the detection results of small models, use `low_memory=False` to download larger models!
+
+    :param text: The text for language detection
+    :param low_memory: Whether to use the compressed version of the model (https://fasttext.cc/docs/en/language-identification.html)
+    :param model_download_proxy: Download proxy for the model if needed
+    :param k: Number of top languages to return
+    :param threshold: Minimum confidence score to consider
+    :param use_strict_mode: When this parameter is enabled, the fallback after loading failure will be disabled.
+    :return: A list of dictionaries with detected languages and confidence scores
     """
     model = load_model(
         low_memory=low_memory,
