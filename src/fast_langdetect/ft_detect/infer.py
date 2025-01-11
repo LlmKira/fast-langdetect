@@ -62,8 +62,9 @@ def download_model(
             folder=str(save_path.parent),
             filename=save_path.name,
             proxy=proxy,
-            retry_max=3,
-            timeout=30,
+            retry_max=2,
+            sleep_max=5,
+            timeout=7,
         )
     except Exception as e:
         logger.error(f"fast-langdetect:Failed to download FastText model from {download_url}: {e}")
@@ -94,7 +95,7 @@ def load_fasttext_model(
         # Load FastText model
         return fasttext.load_model(str(model_path))
     except Exception as e:
-        logger.error(f"fast-langdetect:Failed to load FastText model from {model_path}: {e}")
+        logger.warning(f"fast-langdetect:Failed to load FastText model from {model_path}: {e}")
         raise DetectError(f"Failed to load FastText model: {e}")
 
 
@@ -131,7 +132,7 @@ def load_model(
         _model_cache.cache_model(cache_key, model)
         return model
     except Exception as e:
-        logger.error(f"fast-langdetect:Failed to load model ({'low' if low_memory else 'high'} memory): {e}")
+        logger.warning(f"fast-langdetect:Failed to load model ({'low' if low_memory else 'high'} memory): {e}")
         if use_strict_mode:
             raise DetectError("Failed to load FastText model.") from e
         elif not low_memory:
@@ -176,7 +177,7 @@ def detect(
 def detect_multilingual(
         text: str,
         *,
-        low_memory: bool = True,
+        low_memory: bool = False,
         model_download_proxy: Optional[str] = None,
         k: int = 5,
         threshold: float = 0.0,
