@@ -17,6 +17,7 @@ LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 
 FASTTEXT_LARGE_MODEL_URL = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 FASTTEXT_LARGE_MODEL_NAME = "lid.176.bin"
+VERIFY_FASTTEXT_LARGE_MODEL = "01810bc59c6a3d2b79c79e6336612f65"
 
 
 class DetectError(Exception):
@@ -37,6 +38,36 @@ class ModelManager:
 
 
 _model_cache = ModelManager()
+
+import hashlib
+
+
+def calculate_md5(file_path, chunk_size=8192):
+    """
+    Calculate the MD5 hash of a file.
+
+    :param file_path: Path to the file
+    :param chunk_size: Size of each chunk to read from the file
+    :return: MD5 hash of the file
+    """
+    md5 = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(chunk_size), b''):
+            md5.update(chunk)
+    return md5.hexdigest()
+
+
+def verify_md5(file_path, expected_md5, chunk_size=8192):
+    """
+    Verify the MD5 hash of a file against an expected hash.
+
+    :param file_path: Path to the file
+    :param expected_md5: Expected MD5 hash
+    :param chunk_size: Size of each chunk to read from the file
+    :return: True if the file's MD5 hash matches the expected hash, False otherwise
+    """
+    md5 = calculate_md5(file_path, chunk_size)
+    return md5 == expected_md5
 
 
 def download_model(
@@ -62,8 +93,9 @@ def download_model(
             folder=str(save_path.parent),
             filename=save_path.name,
             proxy=proxy,
-            retry_max=3,
-            timeout=30,
+            retry_max=2,
+            sleep_max=5,
+            timeout=7,
         )
     except Exception as e:
         logger.error(f"fast-langdetect:Failed to download FastText model from {download_url}: {e}")
@@ -83,18 +115,29 @@ def load_fasttext_model(
     :return: FastText model
     :raises DetectError: If model loading fails
     """
-    if not model_path.exists() and download_url:
-        # Attempt to download the model
-        download_model(download_url, model_path, proxy)
-
+    if all([
+        VERIFY_FASTTEXT_LARGE_MODEL,
+        model_path.exists(),
+        model_path.name == FASTTEXT_LARGE_MODEL_NAME,
+    ]):
+        if not verify_md5(model_path, VERIFY_FASTTEXT_LARGE_MODEL):
+            logger.warning(
+                f"fast-langdetect: MD5 hash verification failed for {model_path}, "
+                f"please check the integrity of the downloaded file from {FASTTEXT_LARGE_MODEL_URL}. "
+                "\n    This may seriously reduce the prediction accuracy. "
+                "If you want to ignore this, please set `fast_langdetect.ft_detect.infer.VERIFY_FASTTEXT_LARGE_MODEL = None` "
+            )
     if not model_path.exists():
-        raise DetectError(f"FastText model file not found at {model_path}")
+        if download_url:
+            download_model(download_url, model_path, proxy)
+        if not model_path.exists():
+            raise DetectError(f"FastText model file not found at {model_path}")
 
     try:
         # Load FastText model
         return fasttext.load_model(str(model_path))
     except Exception as e:
-        logger.error(f"fast-langdetect:Failed to load FastText model from {model_path}: {e}")
+        logger.warning(f"fast-langdetect:Failed to load FastText model from {model_path}: {e}")
         raise DetectError(f"Failed to load FastText model: {e}")
 
 
@@ -131,7 +174,7 @@ def load_model(
         _model_cache.cache_model(cache_key, model)
         return model
     except Exception as e:
-        logger.error(f"fast-langdetect:Failed to load model ({'low' if low_memory else 'high'} memory): {e}")
+        logger.warning(f"fast-langdetect:Failed to load model ({'low' if low_memory else 'high'} memory): {e}")
         if use_strict_mode:
             raise DetectError("Failed to load FastText model.") from e
         elif not low_memory:
@@ -149,12 +192,15 @@ def detect(
 ) -> Dict[str, Union[str, float]]:
     """
     Detect the language of a text using FastText.
-    This function assumes to be given a single line of text. We split words on whitespace (space, newline, tab, vertical tab) and the control characters carriage return, formfeed and the null character.
-    If the model is not supervised, this function will throw a ValueError.
+
+    - You MUST manually remove line breaks(`n`) from the text to be processed in advance, otherwise a ValueError is raised.
+
+    - In scenarios **where accuracy is important**, you should not rely on the detection results of small models, use `low_memory=False` to download larger models!
+
     :param text: The text for language detection
-    :param low_memory: Whether to use a memory-efficient model
+    :param low_memory: Whether to use the compressed version of the model (https://fasttext.cc/docs/en/language-identification.html)
     :param model_download_proxy: Download proxy for the model if needed
-    :param use_strict_mode: If it was enabled, strictly loads large model or raises error if it fails
+    :param use_strict_mode: When this parameter is enabled, the fallback after loading failure will be disabled.
     :return: A dictionary with detected language and confidence score
     :raises LanguageDetectionError: If detection fails
     """
@@ -176,7 +222,7 @@ def detect(
 def detect_multilingual(
         text: str,
         *,
-        low_memory: bool = True,
+        low_memory: bool = False,
         model_download_proxy: Optional[str] = None,
         k: int = 5,
         threshold: float = 0.0,
@@ -184,6 +230,18 @@ def detect_multilingual(
 ) -> List[Dict[str, Any]]:
     """
     Detect the top-k probable languages for a given text.
+
+    - You MUST manually remove line breaks(`n`) from the text to be processed in advance, otherwise a ValueError is raised.
+
+    - In scenarios **where accuracy is important**, you should not rely on the detection results of small models, use `low_memory=False` to download larger models!
+
+    :param text: The text for language detection
+    :param low_memory: Whether to use the compressed version of the model (https://fasttext.cc/docs/en/language-identification.html)
+    :param model_download_proxy: Download proxy for the model if needed
+    :param k: Number of top languages to return
+    :param threshold: Minimum confidence score to consider
+    :param use_strict_mode: When this parameter is enabled, the fallback after loading failure will be disabled.
+    :return: A list of dictionaries with detected languages and confidence scores
     """
     model = load_model(
         low_memory=low_memory,
