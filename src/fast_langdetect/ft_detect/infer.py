@@ -17,6 +17,7 @@ LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 
 FASTTEXT_LARGE_MODEL_URL = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 FASTTEXT_LARGE_MODEL_NAME = "lid.176.bin"
+VERIFY_FASTTEXT_LARGE_MODEL = "01810bc59c6a3d2b79c79e6336612f65"
 
 
 class DetectError(Exception):
@@ -37,6 +38,36 @@ class ModelManager:
 
 
 _model_cache = ModelManager()
+
+import hashlib
+
+
+def calculate_md5(file_path, chunk_size=8192):
+    """
+    Calculate the MD5 hash of a file.
+
+    :param file_path: Path to the file
+    :param chunk_size: Size of each chunk to read from the file
+    :return: MD5 hash of the file
+    """
+    md5 = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        for chunk in iter(lambda: f.read(chunk_size), b''):
+            md5.update(chunk)
+    return md5.hexdigest()
+
+
+def verify_md5(file_path, expected_md5, chunk_size=8192):
+    """
+    Verify the MD5 hash of a file against an expected hash.
+
+    :param file_path: Path to the file
+    :param expected_md5: Expected MD5 hash
+    :param chunk_size: Size of each chunk to read from the file
+    :return: True if the file's MD5 hash matches the expected hash, False otherwise
+    """
+    md5 = calculate_md5(file_path, chunk_size)
+    return md5 == expected_md5
 
 
 def download_model(
@@ -84,12 +115,23 @@ def load_fasttext_model(
     :return: FastText model
     :raises DetectError: If model loading fails
     """
-    if not model_path.exists() and download_url:
-        # Attempt to download the model
-        download_model(download_url, model_path, proxy)
-
+    if all([
+        VERIFY_FASTTEXT_LARGE_MODEL,
+        model_path.exists(),
+        model_path.name == FASTTEXT_LARGE_MODEL_NAME,
+    ]):
+        if not verify_md5(model_path, VERIFY_FASTTEXT_LARGE_MODEL):
+            logger.warning(
+                f"fast-langdetect: MD5 hash verification failed for {model_path}, "
+                f"please check the integrity of the downloaded file from {FASTTEXT_LARGE_MODEL_URL}. "
+                "\n    This may seriously reduce the prediction accuracy. "
+                "If you want to ignore this, please set `fast_langdetect.ft_detect.infer.VERIFY_FASTTEXT_LARGE_MODEL = None` "
+            )
     if not model_path.exists():
-        raise DetectError(f"FastText model file not found at {model_path}")
+        if download_url:
+            download_model(download_url, model_path, proxy)
+        if not model_path.exists():
+            raise DetectError(f"FastText model file not found at {model_path}")
 
     try:
         # Load FastText model
