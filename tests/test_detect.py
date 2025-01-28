@@ -9,6 +9,7 @@ def test_muti_detect():
     from fast_langdetect import detect_multilingual
     result = detect_multilingual("hello world", low_memory=True, use_strict_mode=True)
     assert result[0].get("lang") == "en", "ft_detect error"
+    return True
 
 
 def test_large():
