@@ -105,8 +105,13 @@ We provide a fallback mechanism: when `allow_fallback=True`, if the program fail
 
 ```python
 # Disable fallback - will raise error if large model fails to load
-# But fallback disabled when model_path is not None, because its a custom model
-config = LangDetectConfig(allow_fallback=False, model_path=None)
+# But fallback disabled when custom_model_path is not None, because its a custom model, we will directly use it.
+import tempfile
+config = LangDetectConfig(
+    allow_fallback=False, 
+    custom_model_path=None,
+    cache_dir=tempfile.gettempdir(),
+    )
 detector = LangDetector(config)
 
 try:
@@ -136,7 +141,7 @@ print(detect_language("你好，世界！"))
 ```python
 # Load model from local file
 config = LangDetectConfig(
-    model_path="/path/to/your/model.bin",  # Use local model file
+    custom_model_path="/path/to/your/model.bin",  # Use local model file
     disable_verify=True                     # Skip MD5 verification
 )
 detector = LangDetector(config)

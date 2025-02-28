@@ -168,7 +168,7 @@ class LangDetectConfig:
     Configuration for language detection.
 
     :param cache_dir: Directory for storing downloaded models
-    :param model_path: Path to custom model file (if using own model)
+    :param custom_model_path: Path to custom model file (if using own model)
     :param proxy: HTTP proxy for downloads
     :param allow_fallback: Whether to fallback to small model
     :param disable_verify: Whether to disable MD5 verification
@@ -177,21 +177,21 @@ class LangDetectConfig:
     def __init__(
         self,
         cache_dir: Optional[str] = None,
-        model_path: Optional[str] = None,
+        custom_model_path: Optional[str] = None,
         proxy: Optional[str] = None,
         allow_fallback: bool = True,
         disable_verify: bool = False,
         verify_hash: Optional[str] = None,
     ):
         self.cache_dir = cache_dir or CACHE_DIRECTORY
-        self.model_path = model_path
+        self.custom_model_path = custom_model_path
         self.proxy = proxy
         self.allow_fallback = allow_fallback
         # Only verify large model
         self.disable_verify = disable_verify
         self.verify_hash = verify_hash
-        if self.model_path and not Path(self.model_path).exists():
-            raise FileNotFoundError(f"fast-langdetect: Target model file not found: {self.model_path}")
+        if self.custom_model_path and not Path(self.custom_model_path).exists():
+            raise FileNotFoundError(f"fast-langdetect: Target model file not found: {self.custom_model_path}")
 
 class LangDetector:
     """Language detector using FastText models."""
@@ -214,11 +214,11 @@ class LangDetector:
             return model
 
         try:
-            if self.config.model_path is not None:
+            if self.config.custom_model_path is not None:
                 # Load Custom Model
                 if self.config.disable_verify:
                     self.config.verify_hash = None
-                model = self._model_loader.load_local(Path(self.config.model_path))
+                model = self._model_loader.load_local(Path(self.config.custom_model_path))
             elif low_memory is True:
                 self.config.verify_hash = None
                 # Load Small Model

@@ -87,7 +87,7 @@ class TestRealDetection:
         with pytest.raises(FileNotFoundError):
             config = LangDetectConfig(
                 cache_dir="/nonexistent/path",
-                model_path="invalid_path",
+                custom_model_path="invalid_path",
                 allow_fallback=True,
             )
             detector = LangDetector(config)
