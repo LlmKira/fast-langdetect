@@ -21,13 +21,11 @@ logger = logging.getLogger(__name__)
 # 使用系统临时目录作为默认位置
 DEFAULT_CACHE_DIR = Path(tempfile.gettempdir()) / "fasttext-langdetect"
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", str(DEFAULT_CACHE_DIR))
-
-LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 FASTTEXT_LARGE_MODEL_URL = (
     "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 )
 FASTTEXT_LARGE_MODEL_NAME = "lid.176.bin"
-VERIFY_FASTTEXT_LARGE_MODEL = "01810bc59c6a3d2b79c79e6336612f65"
+_LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 
 
 class DetectError(Exception):
@@ -106,63 +104,30 @@ class ModelLoader:
     """Model loading and caching handler."""
 
     def __init__(self):
-        """Initialize model loader with verifier and downloader."""
-        self._models = {}
         self._verifier = ModelVerifier()
         self._downloader = ModelDownloader()
 
-    def get_cached(self, key: str) -> Optional[Any]:
-        """
-        Get model from cache.
-        
-        :param key: Cache key for the model
-        :return: Cached model if exists, None otherwise
-        """
-        return self._models.get(key)
-
-    def cache(self, key: str, model: Any) -> None:
-        """
-        Cache a model instance.
-
-        :param key: Cache key for the model
-        :param model: Model instance to cache
-        """
-        self._models[key] = model
-
-    def load(
-        self,
-        model_path: Path,
-        model_url: Optional[str] = None,
-        proxy: Optional[str] = None,
-        verify_hash: Optional[str] = None,
-    ) -> Any:
-        """
-        Load model with optional download and verification.
-
-        :param model_path: Path to the model file
-        :param model_url: URL to download model if not exists
-        :param proxy: Optional proxy for download
-        :param verify_hash: Optional hash for verification
-
-        :return: Loaded model instance
-
-        :raises:
-            DetectError: If model loading fails
-        """
+    def load_local(self, model_path: Path, verify_hash: Optional[str] = None) -> Any:
+        """Load model from local file."""
         if verify_hash and model_path.exists():
             if not self._verifier.verify(model_path, verify_hash):
-                logger.warning(f"fast-langdetect: MD5 verification failed for {model_path}")
+                logger.warning(
+                    f"fast-langdetect: MD5 verification failed for {model_path}. "
+                    "This may affect prediction accuracy."
+                )
 
-        if not model_path.exists() and model_url:
-            self._downloader.download(model_url, model_path, proxy)
+        if not model_path.exists():
+            raise DetectError(f"Model file not found: {model_path}")
 
-        if platform.system() == 'Windows':
-            try:
-                return self._load_windows_compatible(model_path)
-            except Exception as e:
-                raise DetectError(f"Failed to load model on Windows: {e}")
-        else:
-            return self._load_unix(model_path)
+        if platform.system() == "Windows":
+            return self._load_windows_compatible(model_path)
+        return self._load_unix(model_path)
+
+    def load_with_download(self, model_path: Path, proxy: Optional[str] = None) -> Any:
+        """Internal method to load model with download if needed."""
+        if not model_path.exists():
+            self._downloader.download(FASTTEXT_LARGE_MODEL_URL, model_path, proxy)
+        return self.load_local(model_path)
 
     def _load_windows_compatible(self, model_path: Path) -> Any:
         """Handle Windows path compatibility issues."""
@@ -191,32 +156,34 @@ class LangDetectConfig:
     Configuration for language detection.
 
     :param cache_dir: Directory for storing downloaded models
-    :param model_url: URL for downloading large model
-    :param small_model_path: Path to small model file
+    :param model_path: Path to custom model file (if using own model)
     :param proxy: HTTP proxy for downloads
     :param allow_fallback: Whether to fallback to small model
-    :param verify_hash: Hash for model verification
+    :param disable_verify: Whether to disable MD5 verification
     """
 
     def __init__(
         self,
         cache_dir: Optional[str] = None,
-        model_url: Optional[str] = None,
-        small_model_path: Optional[str] = None,
+        model_path: Optional[str] = None,
         proxy: Optional[str] = None,
         allow_fallback: bool = True,
+        disable_verify: bool = False,
         verify_hash: Optional[str] = None,
     ):
         self.cache_dir = cache_dir or CACHE_DIRECTORY
-        self.model_url = model_url or FASTTEXT_LARGE_MODEL_URL
-        self.small_model_path = small_model_path or str(LOCAL_SMALL_MODEL_PATH)
+        self.model_path = model_path
         self.proxy = proxy
         self.allow_fallback = allow_fallback
-        self.verify_hash = verify_hash or VERIFY_FASTTEXT_LARGE_MODEL
-
+        # Only verify large model
+        self.disable_verify = disable_verify
+        self.verify_hash = verify_hash
+        if self.model_path and not Path(self.model_path).exists():
+            raise FileNotFoundError(f"fast-langdetect: Target model file not found: {self.model_path}")
 
 class LangDetector:
     """Language detector using FastText models."""
+    VERIFY_FASTTEXT_LARGE_MODEL = "01810bc59c6a3d2b79c79e6336612f65"
 
     def __init__(self, config: Optional[LangDetectConfig] = None):
         """
@@ -224,36 +191,36 @@ class LangDetector:
 
         :param config: Optional configuration for the detector
         """
+        self._models = {}
         self.config = config or LangDetectConfig()
         self._model_loader = ModelLoader()
 
     def _get_model(self, low_memory: bool = True) -> Any:
-        """
-        Get or load appropriate model.
-
-        :param low_memory: Whether to use memory-efficient model
-
-        :return: Loaded model instance
-
-        :raises:
-            DetectError: If model loading fails
-        """
+        """Get or load appropriate model."""
         cache_key = "low_memory" if low_memory else "high_memory"
-        if model := self._model_loader.get_cached(cache_key):
+        if model := self._models.get(cache_key):
             return model
 
         try:
-            if low_memory:
-                model = self._model_loader.load(Path(self.config.small_model_path))
+            if self.config.model_path is not None:
+                # Load Custom Model
+                if self.config.disable_verify:
+                    self.config.verify_hash = None
+                model = self._model_loader.load_local(Path(self.config.model_path))
+            elif low_memory is True:
+                self.config.verify_hash = None
+                # Load Small Model
+                model = self._model_loader.load_local(_LOCAL_SMALL_MODEL_PATH)
             else:
+                if self.config.verify_hash is None and not self.config.disable_verify:
+                    self.config.verify_hash = self.VERIFY_FASTTEXT_LARGE_MODEL
+                # Download and Load Large Model
                 model_path = Path(self.config.cache_dir) / FASTTEXT_LARGE_MODEL_NAME
-                model = self._model_loader.load(
+                model = self._model_loader.load_with_download(
                     model_path,
-                    self.config.model_url,
                     self.config.proxy,
-                    self.config.verify_hash,
                 )
-            self._model_loader.cache(cache_key, model)
+            self._models[cache_key] = model
             return model
         except Exception as e:
             if not low_memory and self.config.allow_fallback:

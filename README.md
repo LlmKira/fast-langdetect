@@ -130,6 +130,18 @@ print(detect_language("你好，世界！"))
 # Output: ZH
 ```
 
+### Load Custom Models
+
+```python
+# Load model from local file
+config = LangDetectConfig(
+    model_path="/path/to/your/model.bin",  # Use local model file
+    disable_verify=True                     # Skip MD5 verification
+)
+detector = LangDetector(config)
+result = detector.detect("Hello world")
+```
+
 ### Splitting Text by Language 🌐
 
 For text splitting based on language, please refer to the [split-lang](https://github.com/DoodleBears/split-lang)

@@ -1,6 +1,13 @@
 """Real environment tests for language detection."""
+
 import pytest
-from fast_langdetect import detect, detect_multilingual, LangDetector, LangDetectConfig, DetectError
+from fast_langdetect import (
+    detect,
+    detect_multilingual,
+    LangDetector,
+    LangDetectConfig,
+    DetectError,
+)
 
 # Test samples with known languages
 SAMPLES = [
@@ -15,7 +22,7 @@ SAMPLES = [
 MIXED_SAMPLES = [
     "Hello 世界 こんにちは",  # en-zh-ja
     "你好 world こんにちは",  # zh-en-ja
-    "Bonjour 世界 hello",    # fr-zh-en
+    "Bonjour 世界 hello",  # fr-zh-en
 ]
 
 
@@ -37,8 +44,10 @@ class TestRealDetection:
             results = detect_multilingual(text, k=3)
             assert len(results) == 3
             # 验证结果是按置信度排序的
-            assert all(results[i]["score"] >= results[i+1]["score"] 
-                      for i in range(len(results)-1))
+            assert all(
+                results[i]["score"] >= results[i + 1]["score"]
+                for i in range(len(results) - 1)
+            )
 
     def test_low_memory_mode(self):
         """Test detection works in low memory mode."""
@@ -71,20 +80,27 @@ class TestRealDetection:
         result = detector.detect(SAMPLES[0][0])
         assert result["lang"] == SAMPLES[0][1]
 
-    def test_fallback_mechanism(self):
+    def test_not_found_model(self):
         """Test fallback to small model when large model fails to load."""
         # 创建一个配置，指定一个不存在的大模型路径
+
+        with pytest.raises(FileNotFoundError):
+            config = LangDetectConfig(
+                cache_dir="/nonexistent/path",
+                model_path="invalid_path",
+                allow_fallback=True,
+            )
+            detector = LangDetector(config)
+            detector.detect("Hello world", low_memory=False)
+
+    def test_not_found_model_with_fallback(self):
+        """Test fallback to small model when large model fails to load."""
         config = LangDetectConfig(
             cache_dir="/nonexistent/path",
-            model_url="invalid_url",
-            allow_fallback=True
+            allow_fallback=True,
         )
         detector = LangDetector(config)
-        
-        # 尝试使用大模型进行检测（应该会失败并回退到小模型）
         result = detector.detect("Hello world", low_memory=False)
-        print(result)
-        # 验证检测仍然成功完成
         assert result["lang"] == "en"
         assert 0.1 <= result["score"] <= 1.0
 
@@ -92,11 +108,10 @@ class TestRealDetection:
         """Test that detection fails when fallback is disabled and large model is unavailable."""
         config = LangDetectConfig(
             cache_dir="/nonexistent/path",
-            model_url="invalid_url",
-            allow_fallback=False
+            allow_fallback=False,
         )
         detector = LangDetector(config)
-        
+
         # 当禁用回退时，应该抛出异常
         with pytest.raises(DetectError):
             detector.detect("Hello world", low_memory=False)
