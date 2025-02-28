@@ -105,7 +105,8 @@ We provide a fallback mechanism: when `allow_fallback=True`, if the program fail
 
 ```python
 # Disable fallback - will raise error if large model fails to load
-config = LangDetectConfig(allow_fallback=False)
+# But fallback disabled when model_path is not None, because its a custom model
+config = LangDetectConfig(allow_fallback=False, model_path=None)
 detector = LangDetector(config)
 
 try:
