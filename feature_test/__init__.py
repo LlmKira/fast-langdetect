@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/1/18 上午11:41
 # @Author  : sudoskys
-from fast_langdetect import detect, detect_multilingual, detect_language, LangDetector, LangDetectConfig
+from fast_langdetect import (
+    detect,
+    detect_multilingual,
+    detect_language,
+    LangDetector,
+    LangDetectConfig,
+)
 
 # 测试繁体，简体，日文，英文，韩文，法文，德文，西班牙文
 print(detect_multilingual("Hello, world!你好世界!Привет, мир!", low_memory=False))
@@ -15,18 +21,20 @@ print(detect_language("안녕하세요 세계"))
 print(detect_language("Bonjour le monde"))
 print(detect_language("Hallo Welt"))
 print(detect_language("Hola mundo"))
-print(detect_language("這些機構主辦的課程，多以基本電腦使用為主，例如文書處理、中文輸入、互聯網應用等"))
+print(
+    detect_language(
+        "這些機構主辦的課程，多以基本電腦使用為主，例如文書處理、中文輸入、互聯網應用等"
+    )
+)
 
 # When offline, its raise error
 print(
-    detect_multilingual("Hello, world!你好世界!Привет, мир!", low_memory=False, use_strict_mode=True)
+    detect_multilingual(
+        "Hello, world!你好世界!Привет, мир!", low_memory=False, use_strict_mode=True
+    )
 )
 
-config = LangDetectConfig(
-            cache_dir="/nonexistent/path",
-            model_path="invalid_path",
-            allow_fallback=True
-        )
+config = LangDetectConfig(allow_fallback=False)
 detector = LangDetector(config)
 # 尝试使用大模型进行检测（应该会失败并回退到小模型）
 result = detector.detect("Hello world", low_memory=False)

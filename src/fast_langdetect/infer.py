@@ -235,7 +235,7 @@ class LangDetector:
             self._models[cache_key] = model
             return model
         except Exception as e:
-            if not low_memory and self.config.allow_fallback:
+            if low_memory is not True and self.config.allow_fallback:
                 logger.info("fast-langdetect: Falling back to low-memory model...")
                 return self._get_model(low_memory=True)
             raise DetectError("Failed to load model") from e

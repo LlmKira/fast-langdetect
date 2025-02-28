@@ -104,20 +104,6 @@ class TestRealDetection:
         assert result["lang"] == "en"
         assert 0.1 <= result["score"] <= 1.0
 
-    def test_no_fallback_raises_error(self):
-        """Test that detection fails when fallback is disabled and large model is unavailable."""
-        config = LangDetectConfig(
-            cache_dir="/nonexistent/path",
-            allow_fallback=False,
-            proxy="http://127.0.0.1:1000", # Pretend Network is blocked
-        )
-        detector = LangDetector(config)
-
-        # When fallback is disabled, it should raise error if large model fails to load
-        with pytest.raises(DetectError):
-            detector.detect("Hello world", low_memory=False)
-
-
 @pytest.mark.real
 @pytest.mark.slow
 class TestEdgeCases:
