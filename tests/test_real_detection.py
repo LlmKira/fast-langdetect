@@ -109,7 +109,7 @@ class TestRealDetection:
         config = LangDetectConfig(
             cache_dir="/nonexistent/path",
             allow_fallback=False,
-            proxy="http://127.0.0.1:1000",
+            proxy="http://127.0.0.1:1000", # Pretend Network is blocked
         )
         detector = LangDetector(config)
 
