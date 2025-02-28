@@ -44,8 +44,10 @@ In scenarios **where accuracy is important**, you should not rely on the detecti
 ### Prerequisites
 
 - The "\n" character in the argument string must be removed before calling the function.
-- If the sample is too long or too short, the accuracy will be reduced (e.g. if it is too short, Chinese will be predicted as Japanese).
-- The model will be downloaded to the `/tmp/fasttext-langdetect` directory upon first use.
+- If the sample is too long or too short, the accuracy will be reduced.
+- The model will be downloaded to system temporary directory by default. You can customize it by:
+  - Setting `FTLANG_CACHE` environment variable
+  - Using `LangDetectConfig(cache_dir="your/path")`
 
 ### Native API (Recommended)
 

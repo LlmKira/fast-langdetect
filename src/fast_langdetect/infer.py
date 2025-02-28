@@ -6,6 +6,10 @@ FastText based language detection module.
 import hashlib
 import logging
 import os
+import tempfile
+import platform
+import re
+import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any
 
@@ -14,7 +18,10 @@ from robust_downloader import download
 
 logger = logging.getLogger(__name__)
 
-CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", "/tmp/fasttext-langdetect")
+# 使用系统临时目录作为默认位置
+DEFAULT_CACHE_DIR = Path(tempfile.gettempdir()) / "fasttext-langdetect"
+CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", str(DEFAULT_CACHE_DIR))
+
 LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 FASTTEXT_LARGE_MODEL_URL = (
     "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
@@ -149,6 +156,30 @@ class ModelLoader:
         if not model_path.exists() and model_url:
             self._downloader.download(model_url, model_path, proxy)
 
+        if platform.system() == 'Windows':
+            try:
+                return self._load_windows_compatible(model_path)
+            except Exception as e:
+                raise DetectError(f"Failed to load model on Windows: {e}")
+        else:
+            return self._load_unix(model_path)
+
+    def _load_windows_compatible(self, model_path: Path) -> Any:
+        """Handle Windows path compatibility issues."""
+        if re.match(r'^[A-Za-z0-9_/\\:.]*$', str(model_path)):
+            return fasttext.load_model(str(model_path))
+            
+        # 创建临时文件处理特殊字符路径
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            shutil.copy2(model_path, tmp.name)
+            try:
+                model = fasttext.load_model(tmp.name)
+            finally:
+                os.unlink(tmp.name)
+        return model
+
+    def _load_unix(self, model_path: Path) -> Any:
+        """Load model on Unix-like systems."""
         try:
             return fasttext.load_model(str(model_path))
         except Exception as e:
