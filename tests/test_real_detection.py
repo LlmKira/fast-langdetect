@@ -109,10 +109,11 @@ class TestRealDetection:
         config = LangDetectConfig(
             cache_dir="/nonexistent/path",
             allow_fallback=False,
+            proxy="http://127.0.0.1:1000",
         )
         detector = LangDetector(config)
 
-        # 当禁用回退时，应该抛出异常
+        # When fallback is disabled, it should raise error if large model fails to load
         with pytest.raises(DetectError):
             detector.detect("Hello world", low_memory=False)
 
