@@ -169,7 +169,7 @@ class ModelLoader:
         if re.match(r'^[A-Za-z0-9_/\\:.]*$', str(model_path)):
             return fasttext.load_model(str(model_path))
             
-        # 创建临时文件处理特殊字符路径
+        # Create a temporary file to handle special characters in the path
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             shutil.copy2(model_path, tmp.name)
             try:
