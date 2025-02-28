@@ -18,7 +18,7 @@ from robust_downloader import download
 
 logger = logging.getLogger(__name__)
 
-# 使用系统临时目录作为默认位置
+# Use system temporary directory as default cache directory
 DEFAULT_CACHE_DIR = Path(tempfile.gettempdir()) / "fasttext-langdetect"
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", str(DEFAULT_CACHE_DIR))
 FASTTEXT_LARGE_MODEL_URL = (
@@ -133,15 +133,27 @@ class ModelLoader:
         """Handle Windows path compatibility issues."""
         if re.match(r'^[A-Za-z0-9_/\\:.]*$', str(model_path)):
             return fasttext.load_model(str(model_path))
-            
+        
         # Create a temporary file to handle special characters in the path
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            shutil.copy2(model_path, tmp.name)
+            tmp_path = tmp.name
+            shutil.copy2(model_path, tmp_path)
+        
+        try:
+            model = fasttext.load_model(tmp_path)
+            return model
+        finally:
             try:
-                model = fasttext.load_model(tmp.name)
-            finally:
-                os.unlink(tmp.name)
-        return model
+                os.unlink(tmp_path)
+            except (OSError, PermissionError) as e:
+                logger.warning(f"fast-langdetect: Failed to delete temporary file {tmp_path}: {e}")
+                # Schedule file for deletion on next reboot on Windows
+                if platform.system() == "Windows":
+                    try:
+                        import _winapi
+                        _winapi.MoveFileEx(tmp_path, None, _winapi.MOVEFILE_DELAY_UNTIL_REBOOT)
+                    except (ImportError, AttributeError, OSError) as we:
+                        logger.warning(f"fast-langdetect: Failed to schedule file deletion: {we}")
 
     def _load_unix(self, model_path: Path) -> Any:
         """Load model on Unix-like systems."""
