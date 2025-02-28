@@ -43,50 +43,74 @@ In scenarios **where accuracy is important**, you should not rely on the detecti
 
 ### Prerequisites
 
-- The “/n” character in the argument string must be removed before calling the function.
+- The "\n" character in the argument string must be removed before calling the function.
 - If the sample is too long or too short, the accuracy will be reduced (e.g. if it is too short, Chinese will be predicted as Japanese).
 - The model will be downloaded to the `/tmp/fasttext-langdetect` directory upon first use.
 
 ### Native API (Recommended)
 
 ```python
-from fast_langdetect import detect, detect_multilingual
+from fast_langdetect import detect, detect_multilingual, LangDetector, LangDetectConfig, DetectError
 
-# Single language detection
+# Simple detection
 print(detect("Hello, world!"))
 # Output: {'lang': 'en', 'score': 0.12450417876243591}
 
-# `use_strict_mode` determines whether the model loading process should enforce strict conditions before using fallback options.
-# If `use_strict_mode` is set to True, we will load only the selected model, not the fallback model.
-print(detect("Hello, world!", low_memory=False, use_strict_mode=True))
+# Using large model for better accuracy
+print(detect("Hello, world!", low_memory=False))
+# Output: {'lang': 'en', 'score': 0.98765432109876}
+
+# Custom configuration with fallback mechanism
+config = LangDetectConfig(
+    cache_dir="/custom/cache/path",  # Custom model cache directory
+    allow_fallback=True             # Enable fallback to small model if large model fails
+)
+detector = LangDetector(config)
+
+try:
+    result = detector.detect("Hello world", low_memory=False)
+    print(result)  # {'lang': 'en', 'score': 0.98}
+except DetectError as e:
+    print(f"Detection failed: {e}")
 
 # How to deal with multiline text
 multiline_text = """
 Hello, world!
 This is a multiline text.
-But we need remove `\n` characters or it will raise an ValueError.
-REMOVE \n
+But we need remove \n characters or it will raise a DetectError.
 """
-multiline_text = multiline_text.replace("\n", "")  
+multiline_text = multiline_text.replace("\n", " ")  
 print(detect(multiline_text))
 # Output: {'lang': 'en', 'score': 0.8509423136711121}
 
-print(detect("Привет, мир!")["lang"])
-# Output: ru
-
-# Multi-language detection with low memory mode enabled
-# The accuracy is not as good as it should be
-print(detect_multilingual("Hello, world!你好世界!Привет, мир!"))
-# Output: [{'lang': 'ja', 'score': 0.32009604573249817}, {'lang': 'uk', 'score': 0.27781224250793457}, {'lang': 'zh', 'score': 0.17542070150375366}, {'lang': 'sr', 'score': 0.08751443773508072}, {'lang': 'bg', 'score': 0.05222449079155922}]
-
-# Multi-language detection with low memory mode disabled
-print(detect_multilingual("Hello, world!你好世界!Привет, мир!", low_memory=False))
-# Output: [{'lang': 'ru', 'score': 0.39008623361587524}, {'lang': 'zh', 'score': 0.18235979974269867}, {'lang': 'ja', 'score': 0.08473210036754608}, {'lang': 'sr', 'score': 0.057975586503744125}, {'lang': 'en', 'score': 0.05422825738787651}]
+# Multi-language detection
+results = detect_multilingual(
+    "Hello 世界 こんにちは", 
+    low_memory=False,  # Use large model for better accuracy
+    k=3               # Return top 3 languages
+)
+print(results)
+# Output: [
+#     {'lang': 'ja', 'score': 0.4}, 
+#     {'lang': 'zh', 'score': 0.3}, 
+#     {'lang': 'en', 'score': 0.2}
+# ]
 ```
 
 #### Fallbacks
 
-We provide a fallback mechanism: when `use_strict_mode=False`, if the program fails to load the **large model** (`low_memory=False`), it will fall back to the offline **small model** to complete the prediction task.
+We provide a fallback mechanism: when `allow_fallback=True`, if the program fails to load the **large model** (`low_memory=False`), it will fall back to the offline **small model** to complete the prediction task.
+
+```python
+# Disable fallback - will raise error if large model fails to load
+config = LangDetectConfig(allow_fallback=False)
+detector = LangDetector(config)
+
+try:
+    result = detector.detect("Hello world", low_memory=False)
+except DetectError as e:
+    print("Model loading failed and fallback is disabled")
+```
 
 ### Convenient `detect_language` Function
 
