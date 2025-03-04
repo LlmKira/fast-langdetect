@@ -26,7 +26,10 @@ def test_model_loading_with_chinese_path():
         shutil.copy2(model_path, chinese_model_path)
         
         # 正确使用自定义模型路径
-        config = LangDetectConfig(custom_model_path=str(chinese_model_path))
+        config = LangDetectConfig(
+            custom_model_path=str(chinese_model_path),
+            allow_fallback=False
+            )
         detector = LangDetector(config)
         result = detector.detect("This is a test")
         
