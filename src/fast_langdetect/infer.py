@@ -130,30 +130,67 @@ class ModelLoader:
         return self.load_local(model_path)
 
     def _load_windows_compatible(self, model_path: Path) -> Any:
-        """Handle Windows path compatibility issues."""
-        if re.match(r'^[A-Za-z0-9_/\\:.]*$', str(model_path)):
-            return fasttext.load_model(str(model_path))
+        """
+        Handle Windows path compatibility issues when loading FastText models.
         
-        # Create a temporary file to handle special characters in the path
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-            shutil.copy2(model_path, tmp_path)
+        Attempts multiple strategies in order:
+        1. Direct loading if path contains only safe characters
+        2. Loading via relative path if possible
+        3. Copying to temporary file as last resort
         
-        try:
-            model = fasttext.load_model(tmp_path)
-            return model
-        finally:
+        :param model_path: Path to the model file
+        :return: Loaded FastText model
+        :raises DetectError: If all loading strategies fail
+        """
+        model_path_str = str(model_path.resolve())
+        
+        # 策略1: 直接加载安全路径
+        if re.match(r'^[A-Za-z0-9_/\\:.\-]*$', model_path_str):
             try:
-                os.unlink(tmp_path)
-            except (OSError, PermissionError) as e:
-                logger.warning(f"fast-langdetect: Failed to delete temporary file {tmp_path}: {e}")
-                # Schedule file for deletion on next reboot on Windows
-                if platform.system() == "Windows":
-                    try:
-                        import _winapi
-                        _winapi.MoveFileEx(tmp_path, None, _winapi.MOVEFILE_DELAY_UNTIL_REBOOT)
-                    except (ImportError, AttributeError, OSError) as we:
-                        logger.warning(f"fast-langdetect: Failed to schedule file deletion: {we}")
+                return fasttext.load_model(model_path_str)
+            except Exception as e:
+                logger.debug(f"fast-langdetect: Direct loading failed: {e}")
+        
+        # 策略2: 尝试使用相对路径
+        try:
+            cwd = Path.cwd().resolve()
+            # 检查模型路径是否在当前工作目录下
+            if str(model_path).startswith(str(cwd)) or model_path_str.upper().startswith(str(cwd).upper()):
+                rel_path = os.path.relpath(model_path, cwd)
+                if re.match(r'^[A-Za-z0-9_/\\:.\-]*$', rel_path):
+                    return fasttext.load_model(rel_path)
+        except Exception as e:
+            logger.debug(f"fast-langdetect: Relative path loading failed: {e}")
+        
+        # 策略3: 使用临时文件作为最后手段
+        logger.debug(f"fast-langdetect: Using temporary file for model: {model_path}")
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                tmp_path = tmp.name
+            
+            shutil.copy2(model_path, tmp_path)
+            return fasttext.load_model(tmp_path)
+        except Exception as e:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except:
+                    pass
+            raise DetectError(f"Failed to load model via temporary file: {e}")
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except (OSError, PermissionError) as e:
+                    logger.warning(f"fast-langdetect: Failed to delete temporary file {tmp_path}: {e}")
+                    # 在Windows上计划在下次重启时删除
+                    if platform.system() == "Windows":
+                        try:
+                            import _winapi
+                            _winapi.MoveFileEx(tmp_path, None, _winapi.MOVEFILE_DELAY_UNTIL_REBOOT)
+                        except (ImportError, AttributeError, OSError) as we:
+                            logger.warning(f"fast-langdetect: Failed to schedule file deletion: {we}")
 
     def _load_unix(self, model_path: Path) -> Any:
         """Load model on Unix-like systems."""
