@@ -130,30 +130,61 @@ class ModelLoader:
         return self.load_local(model_path)
 
     def _load_windows_compatible(self, model_path: Path) -> Any:
-        """Handle Windows path compatibility issues."""
-        if re.match(r'^[A-Za-z0-9_/\\:.]*$', str(model_path)):
-            return fasttext.load_model(str(model_path))
+        """
+        Handle Windows path compatibility issues when loading FastText models.
         
-        # Create a temporary file to handle special characters in the path
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp_path = tmp.name
-            shutil.copy2(model_path, tmp_path)
+        Attempts multiple strategies in order:
+        1. Direct loading if path contains only safe characters
+        2. Loading via relative path if possible
+        3. Copying to temporary file as last resort
         
+        :param model_path: Path to the model file
+        :return: Loaded FastText model
+        :raises DetectError: If all loading strategies fail
+        """
+        model_path_str = str(model_path.resolve())
+        
+        # Try to load model directly
         try:
-            model = fasttext.load_model(tmp_path)
-            return model
+            return fasttext.load_model(model_path_str)
+        except Exception as e:
+            logger.debug(f"fast-langdetect: Load model failed: {e}")
+        
+        # Try to load model using relative path
+        try:
+            cwd = Path.cwd()
+            rel_path = os.path.relpath(model_path, cwd)
+            return fasttext.load_model(rel_path)
+        except Exception as e:
+            logger.debug(f"fast-langdetect: Failed to load model using relative path: {e}")
+        
+        # Use temporary file as last resort
+        logger.debug(f"fast-langdetect: Using temporary file to load model: {model_path}")
+        tmp_path = None
+        try:
+            # Use NamedTemporaryFile to create a temporary file
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix='.bin')
+            os.close(tmp_fd)  # Close file descriptor
+            
+            # Copy model file to temporary location
+            shutil.copy2(model_path, tmp_path)
+            return fasttext.load_model(tmp_path)
+        except Exception as e:
+            raise DetectError(f"Failed to load model using temporary file: {e}")
         finally:
-            try:
-                os.unlink(tmp_path)
-            except (OSError, PermissionError) as e:
-                logger.warning(f"fast-langdetect: Failed to delete temporary file {tmp_path}: {e}")
-                # Schedule file for deletion on next reboot on Windows
-                if platform.system() == "Windows":
-                    try:
-                        import _winapi
-                        _winapi.MoveFileEx(tmp_path, None, _winapi.MOVEFILE_DELAY_UNTIL_REBOOT)
-                    except (ImportError, AttributeError, OSError) as we:
-                        logger.warning(f"fast-langdetect: Failed to schedule file deletion: {we}")
+            # Clean up temporary file
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except (OSError, PermissionError) as e:
+                    logger.warning(f"fast-langdetect: Failed to delete temporary file {tmp_path}: {e}")
+                    # Plan to delete on next reboot on Windows
+                    if platform.system() == "Windows":
+                        try:
+                            import _winapi
+                            _winapi.MoveFileEx(tmp_path, None, _winapi.MOVEFILE_DELAY_UNTIL_REBOOT)
+                        except (ImportError, AttributeError, OSError) as we:
+                            logger.warning(f"fast-langdetect: Failed to schedule file deletion: {we}")
 
     def _load_unix(self, model_path: Path) -> Any:
         """Load model on Unix-like systems."""

@@ -6,8 +6,7 @@ on:
     branches:
       - main
       - dev
-      - develop
-      - '**-develop'
+      - 'dev-**'
 
 jobs:
   Testing:
@@ -27,6 +26,7 @@ jobs:
       - name: Install dependencies
         run: |
           pdm install --no-lock -G testing
-      - name: Run Tests
+
+      - name: Run Regular Tests
         run: |
           pdm run -v pytest tests
