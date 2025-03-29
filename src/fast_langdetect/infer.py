@@ -203,6 +203,7 @@ class LangDetectConfig:
     :param proxy: HTTP proxy for downloads
     :param allow_fallback: Whether to fallback to small model
     :param disable_verify: Whether to disable MD5 verification
+    :param normalize_input: Whether to normalize input text (e.g. lowercase for uppercase text)
     """
 
     def __init__(
@@ -213,6 +214,7 @@ class LangDetectConfig:
         allow_fallback: bool = True,
         disable_verify: bool = False,
         verify_hash: Optional[str] = None,
+        normalize_input: bool = False,
     ):
         self.cache_dir = cache_dir or CACHE_DIRECTORY
         self.custom_model_path = custom_model_path
@@ -221,8 +223,10 @@ class LangDetectConfig:
         # Only verify large model
         self.disable_verify = disable_verify
         self.verify_hash = verify_hash
+        self.normalize_input = normalize_input
         if self.custom_model_path and not Path(self.custom_model_path).exists():
             raise FileNotFoundError(f"fast-langdetect: Target model file not found: {self.custom_model_path}")
+
 
 class LangDetector:
     """Language detector using FastText models."""
@@ -286,8 +290,9 @@ class LangDetector:
             DetectError: If detection fails
         """
         model = self._get_model(low_memory)
+        normalized_text = _normalize_text(text, self.config.normalize_input)
         try:
-            labels, scores = model.predict(text)
+            labels, scores = model.predict(normalized_text)
             return {
                 "lang": labels[0].replace("__label__", ""),
                 "score": min(float(scores[0]), 1.0),
@@ -317,8 +322,9 @@ class LangDetector:
             DetectError: If detection fails
         """
         model = self._get_model(low_memory)
+        normalized_text = _normalize_text(text, self.config.normalize_input)
         try:
-            labels, scores = model.predict(text, k=k, threshold=threshold)
+            labels, scores = model.predict(normalized_text, k=k, threshold=threshold)
             results = [
                 {
                     "lang": label.replace("__label__", ""),
@@ -336,12 +342,37 @@ class LangDetector:
 _default_detector = LangDetector()
 
 
+def _normalize_text(text: str, should_normalize: bool = False) -> str:
+    """
+    Normalize text based on configuration.
+    
+    Currently handles:
+    - Lowercasing uppercase text to prevent misdetection as Japanese
+    
+    :param text: Input text
+    :param should_normalize: Whether normalization should be applied
+    :return: Normalized text
+    """
+    if not should_normalize:
+        return text
+        
+    # Check if text is all uppercase (or mostly uppercase)
+    if text.isupper() or (
+        len(re.findall(r'[A-Z]', text)) > 0.8 * len(re.findall(r'[A-Za-z]', text)) 
+        and len(text) > 5
+    ):
+        return text.lower()
+    
+    return text
+
+
 def detect(
     text: str,
     *,
     low_memory: bool = True,
     model_download_proxy: Optional[str] = None,
     use_strict_mode: bool = False,
+    normalize_input: bool = True,
 ) -> Dict[str, Union[str, float]]:
     """
     Simple interface for language detection.
@@ -354,6 +385,7 @@ def detect(
     :param low_memory: Whether to use memory-efficient model
     :param model_download_proxy: Optional proxy for model download
     :param use_strict_mode: Disable fallback to small model
+    :param normalize_input: Whether to normalize input text (lowercase all-uppercase text)
 
     :return: Dictionary with language and confidence score
     """
@@ -362,9 +394,11 @@ def detect(
             "fast-langdetect: Text contains newline characters or is too long. "
             "You should only pass a single sentence for accurate prediction."
         )
-    if model_download_proxy or use_strict_mode:
+    if model_download_proxy or use_strict_mode or normalize_input:
         config = LangDetectConfig(
-            proxy=model_download_proxy, allow_fallback=not use_strict_mode
+            proxy=model_download_proxy, 
+            allow_fallback=not use_strict_mode,
+            normalize_input=normalize_input
         )
         detector = LangDetector(config)
         return detector.detect(text, low_memory=low_memory)
@@ -379,6 +413,7 @@ def detect_multilingual(
     k: int = 5,
     threshold: float = 0.0,
     use_strict_mode: bool = False,
+    normalize_input: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Simple interface for multi-language detection.
@@ -393,6 +428,7 @@ def detect_multilingual(
     :param k: Number of top languages to return
     :param threshold: Minimum confidence threshold
     :param use_strict_mode: Disable fallback to small model
+    :param normalize_input: Whether to normalize input text (lowercase all-uppercase text)
 
     :return: List of dictionaries with languages and scores
     """
@@ -401,9 +437,11 @@ def detect_multilingual(
             "fast-langdetect: Text contains newline characters or is too long. "
             "You should only pass a single sentence for accurate prediction."
         )
-    if model_download_proxy or use_strict_mode:
+    if model_download_proxy or use_strict_mode or normalize_input:
         config = LangDetectConfig(
-            proxy=model_download_proxy, allow_fallback=not use_strict_mode
+            proxy=model_download_proxy, 
+            allow_fallback=not use_strict_mode,
+            normalize_input=normalize_input
         )
         detector = LangDetector(config)
         return detector.detect_multilingual(
