@@ -242,11 +242,12 @@ class LangDetector:
         self.config = config or LangDetectConfig()
         self._model_loader = ModelLoader()
 
-    def _normalize_text(self, text: str, should_normalize: bool = False) -> str:
+    @staticmethod
+    def _normalize_text(text: str, should_normalize: bool = False) -> str:
         """
         Normalize text based on configuration.
         
-        Currently handles:
+        Currently, handles:
         - Removing newline characters for better prediction
         - Lowercasing uppercase text to prevent misdetection as Japanese
         
@@ -257,12 +258,9 @@ class LangDetector:
         # If not normalization is needed, return the processed text
         if not should_normalize:
             return text
-
-        # Check and record newline and long text
-        if "\n" in text:
-            text = text.replace("\n", " ")
         
         # Check if text is all uppercase or mostly uppercase
+        # https://github.com/LlmKira/fast-langdetect/issues/14
         if text.isupper() or (
                 len(re.findall(r'[A-Z]', text)) > 0.8 * len(re.findall(r'[A-Za-z]', text))
                 and len(text) > 5
@@ -322,13 +320,13 @@ class LangDetector:
         normalized_text = self._normalize_text(text, self.config.normalize_input)
         if len(normalized_text) > 100:
             logger.warning(
-                "fast-langdetect: Text is too long. "
+                "fast-langdetect: Text may be too long. "
                 "Consider passing only a single sentence for accurate prediction."
             )
         if "\n" in normalized_text:
             logger.warning(
-                "fast-langdetect: Text contains newline characters. "
-                "Removing newlines for better prediction accuracy."
+                "fast-langdetect: Input should not contain newline characters. "
+                "Removing them or FastText will raise an error."
             )
             normalized_text = normalized_text.replace("\n", " ")
         try:
@@ -407,7 +405,7 @@ def detect(
     if config is not None:
         detector = LangDetector(config)
         return detector.detect(text, low_memory=low_memory)
-    
+
     # Check if any custom parameters are provided
     has_custom_params = any([
         model_download_proxy is not None,
@@ -426,7 +424,7 @@ def detect(
         )
         detector = LangDetector(custom_config)
         return detector.detect(text, low_memory=low_memory)
-    
+
     # Use default detector
     return _default_detector.detect(text, low_memory=low_memory)
 
@@ -462,7 +460,7 @@ def detect_multilingual(
         return detector.detect_multilingual(
             text, low_memory=low_memory, k=k, threshold=threshold
         )
-    
+
     # Check if any custom parameters are provided
     has_custom_params = any([
         model_download_proxy is not None,
@@ -483,7 +481,7 @@ def detect_multilingual(
         return detector.detect_multilingual(
             text, low_memory=low_memory, k=k, threshold=threshold
         )
-    
+
     # Use default detector
     return _default_detector.detect_multilingual(
         text, low_memory=low_memory, k=k, threshold=threshold
