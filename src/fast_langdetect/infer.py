@@ -243,6 +243,27 @@ class LangDetector:
         self._model_loader = ModelLoader()
 
     @staticmethod
+    def _preprocess_text(text: str) -> str:
+        """
+        Check text for newline characters and length.
+
+        :param text: Input text
+        :return: Processed text
+        """
+        if len(text) > 100:
+            logger.warning(
+                "fast-langdetect: Text may be too long. "
+                "Consider passing only a single sentence for accurate prediction."
+            )
+        if "\n" in text:
+            logger.warning(
+                "fast-langdetect: Newline characters will be removed. "
+                "Input should not contain newline characters. or FastText will raise an error."
+            )
+            text = text.replace("\n", " ")
+        return text
+
+    @staticmethod
     def _normalize_text(text: str, should_normalize: bool = False) -> str:
         """
         Normalize text based on configuration.
@@ -258,7 +279,7 @@ class LangDetector:
         # If not normalization is needed, return the processed text
         if not should_normalize:
             return text
-        
+
         # Check if text is all uppercase or mostly uppercase
         # https://github.com/LlmKira/fast-langdetect/issues/14
         if text.isupper() or (
@@ -317,18 +338,8 @@ class LangDetector:
             DetectError: If detection fails
         """
         model = self._get_model(low_memory)
+        text = self._preprocess_text(text)
         normalized_text = self._normalize_text(text, self.config.normalize_input)
-        if len(normalized_text) > 100:
-            logger.warning(
-                "fast-langdetect: Text may be too long. "
-                "Consider passing only a single sentence for accurate prediction."
-            )
-        if "\n" in normalized_text:
-            logger.warning(
-                "fast-langdetect: Input should not contain newline characters. "
-                "Removing them or FastText will raise an error."
-            )
-            normalized_text = normalized_text.replace("\n", " ")
         try:
             labels, scores = model.predict(normalized_text)
             return {
@@ -360,6 +371,7 @@ class LangDetector:
             DetectError: If detection fails
         """
         model = self._get_model(low_memory)
+        text = self._preprocess_text(text)
         normalized_text = self._normalize_text(text, self.config.normalize_input)
         try:
             labels, scores = model.predict(normalized_text, k=k, threshold=threshold)
