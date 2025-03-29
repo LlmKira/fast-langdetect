@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2024/1/17 下午4:00
 
+from .infer import LangDetector, LangDetectConfig, DetectError  # noqa: F401
 from .infer import detect
 from .infer import detect_multilingual  # noqa: F401
-from .infer import LangDetector, LangDetectConfig, DetectError  # noqa: F401
+
 
 def is_japanese(string):
     for ch in string:

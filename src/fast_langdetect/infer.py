@@ -6,10 +6,10 @@ FastText based language detection module.
 import hashlib
 import logging
 import os
-import tempfile
 import platform
 import re
 import shutil
+import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any
 
@@ -143,13 +143,13 @@ class ModelLoader:
         :raises DetectError: If all loading strategies fail
         """
         model_path_str = str(model_path.resolve())
-        
+
         # Try to load model directly
         try:
             return fasttext.load_model(model_path_str)
         except Exception as e:
             logger.debug(f"fast-langdetect: Load model failed: {e}")
-        
+
         # Try to load model using relative path
         try:
             cwd = Path.cwd()
@@ -157,7 +157,7 @@ class ModelLoader:
             return fasttext.load_model(rel_path)
         except Exception as e:
             logger.debug(f"fast-langdetect: Failed to load model using relative path: {e}")
-        
+
         # Use temporary file as last resort
         logger.debug(f"fast-langdetect: Using temporary file to load model: {model_path}")
         tmp_path = None
@@ -165,7 +165,7 @@ class ModelLoader:
             # Use NamedTemporaryFile to create a temporary file
             tmp_fd, tmp_path = tempfile.mkstemp(suffix='.bin')
             os.close(tmp_fd)  # Close file descriptor
-            
+
             # Copy model file to temporary location
             shutil.copy2(model_path, tmp_path)
             return fasttext.load_model(tmp_path)
@@ -207,14 +207,14 @@ class LangDetectConfig:
     """
 
     def __init__(
-        self,
-        cache_dir: Optional[str] = None,
-        custom_model_path: Optional[str] = None,
-        proxy: Optional[str] = None,
-        allow_fallback: bool = True,
-        disable_verify: bool = False,
-        verify_hash: Optional[str] = None,
-        normalize_input: bool = False,
+            self,
+            cache_dir: Optional[str] = None,
+            custom_model_path: Optional[str] = None,
+            proxy: Optional[str] = None,
+            allow_fallback: bool = True,
+            disable_verify: bool = False,
+            verify_hash: Optional[str] = None,
+            normalize_input: bool = False,
     ):
         self.cache_dir = cache_dir or CACHE_DIRECTORY
         self.custom_model_path = custom_model_path
@@ -276,7 +276,7 @@ class LangDetector:
             raise DetectError("Failed to load model") from e
 
     def detect(
-        self, text: str, low_memory: bool = True
+            self, text: str, low_memory: bool = True
     ) -> Dict[str, Union[str, float]]:
         """
         Detect primary language of text.
@@ -302,11 +302,11 @@ class LangDetector:
             raise DetectError("Language detection failed") from e
 
     def detect_multilingual(
-        self,
-        text: str,
-        low_memory: bool = False,
-        k: int = 5,
-        threshold: float = 0.0,
+            self,
+            text: str,
+            low_memory: bool = False,
+            k: int = 5,
+            threshold: float = 0.0,
     ) -> List[Dict[str, Any]]:
         """
         Detect multiple possible languages in text.
@@ -355,24 +355,24 @@ def _normalize_text(text: str, should_normalize: bool = False) -> str:
     """
     if not should_normalize:
         return text
-        
+
     # Check if text is all uppercase (or mostly uppercase)
     if text.isupper() or (
-        len(re.findall(r'[A-Z]', text)) > 0.8 * len(re.findall(r'[A-Za-z]', text)) 
-        and len(text) > 5
+            len(re.findall(r'[A-Z]', text)) > 0.8 * len(re.findall(r'[A-Za-z]', text))
+            and len(text) > 5
     ):
         return text.lower()
-    
+
     return text
 
 
 def detect(
-    text: str,
-    *,
-    low_memory: bool = True,
-    model_download_proxy: Optional[str] = None,
-    use_strict_mode: bool = False,
-    normalize_input: bool = True,
+        text: str,
+        *,
+        low_memory: bool = True,
+        model_download_proxy: Optional[str] = None,
+        use_strict_mode: bool = False,
+        normalize_input: bool = True,
 ) -> Dict[str, Union[str, float]]:
     """
     Simple interface for language detection.
@@ -396,7 +396,7 @@ def detect(
         )
     if model_download_proxy or use_strict_mode or normalize_input:
         config = LangDetectConfig(
-            proxy=model_download_proxy, 
+            proxy=model_download_proxy,
             allow_fallback=not use_strict_mode,
             normalize_input=normalize_input
         )
@@ -406,14 +406,14 @@ def detect(
 
 
 def detect_multilingual(
-    text: str,
-    *,
-    low_memory: bool = False,
-    model_download_proxy: Optional[str] = None,
-    k: int = 5,
-    threshold: float = 0.0,
-    use_strict_mode: bool = False,
-    normalize_input: bool = True,
+        text: str,
+        *,
+        low_memory: bool = False,
+        model_download_proxy: Optional[str] = None,
+        k: int = 5,
+        threshold: float = 0.0,
+        use_strict_mode: bool = False,
+        normalize_input: bool = True,
 ) -> List[Dict[str, Any]]:
     """
     Simple interface for multi-language detection.
@@ -439,7 +439,7 @@ def detect_multilingual(
         )
     if model_download_proxy or use_strict_mode or normalize_input:
         config = LangDetectConfig(
-            proxy=model_download_proxy, 
+            proxy=model_download_proxy,
             allow_fallback=not use_strict_mode,
             normalize_input=normalize_input
         )
