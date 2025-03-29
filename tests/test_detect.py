@@ -2,27 +2,31 @@
 # @Time    : 2024/1/17 下午5:28
 
 def test_muti_detect():
-    from fast_langdetect import detect_multilingual
-    result = detect_multilingual("hello world", low_memory=True, use_strict_mode=True)
+    from fast_langdetect import detect_multilingual,LangDetectConfig
+    result = detect_multilingual(
+        "hello world",
+        low_memory=True,
+        config=LangDetectConfig(allow_fallback=False)
+    )
     assert result[0].get("lang") == "en", "ft_detect error"
     return True
 
 
 def test_large():
-    from fast_langdetect import detect_multilingual
-    result = detect_multilingual("hello world", low_memory=True, use_strict_mode=True)
+    from fast_langdetect import detect_multilingual, LangDetectConfig
+    result = detect_multilingual("hello world", low_memory=True, config=LangDetectConfig(allow_fallback=False))
     assert result[0].get("lang") == "en", "ft_detect error"
-    result = detect_multilingual("你好世界", low_memory=False, use_strict_mode=True)
+    result = detect_multilingual("你好世界", low_memory=False, config=LangDetectConfig(allow_fallback=False))
     assert result[0].get("lang") == "zh", "ft_detect error"
 
 
 def test_detect():
-    from fast_langdetect import detect
-    assert detect("hello world", low_memory=False, use_strict_mode=True)["lang"] == "en", "ft_detect error"
-    assert detect("你好世界", low_memory=True, use_strict_mode=True)["lang"] == "zh", "ft_detect error"
-    assert detect("こんにちは世界", low_memory=False, use_strict_mode=True)["lang"] == "ja", "ft_detect error"
-    assert detect("안녕하세요 세계", low_memory=True, use_strict_mode=True)["lang"] == "ko", "ft_detect error"
-    assert detect("Bonjour le monde", low_memory=False, use_strict_mode=True)["lang"] == "fr", "ft_detect error"
+    from fast_langdetect import detect, LangDetectConfig
+    assert detect("hello world", low_memory=False, config=LangDetectConfig(allow_fallback=False))["lang"] == "en", "ft_detect error"
+    assert detect("你好世界", low_memory=True, config=LangDetectConfig(allow_fallback=False))["lang"] == "zh", "ft_detect error"
+    assert detect("こんにちは世界", low_memory=False, config=LangDetectConfig(allow_fallback=False))["lang"] == "ja", "ft_detect error"
+    assert detect("안녕하세요 세계", low_memory=True, config=LangDetectConfig(allow_fallback=False))["lang"] == "ko", "ft_detect error"
+    assert detect("Bonjour le monde", low_memory=False, config=LangDetectConfig(allow_fallback=False))["lang"] == "fr", "ft_detect error"
 
 
 def test_detect_totally():

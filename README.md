@@ -43,7 +43,6 @@ In scenarios **where accuracy is important**, you should not rely on the detecti
 
 ### Prerequisites
 
-- The "\n" character in the argument string must be removed before calling the function.
 - If the sample is too long or too short, the accuracy will be reduced.
 - The model will be downloaded to system temporary directory by default. You can customize it by:
   - Setting `FTLANG_CACHE` environment variable
@@ -79,7 +78,6 @@ except DetectError as e:
 multiline_text = """
 Hello, world!
 This is a multiline text.
-But we need remove \n characters or it will raise a DetectError.
 """
 multiline_text = multiline_text.replace("\n", " ")  
 print(detect(multiline_text))
