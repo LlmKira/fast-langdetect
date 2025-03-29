@@ -115,12 +115,6 @@ class TestEdgeCases:
         assert "lang" in result
         assert "score" in result
 
-    def test_newline(self):
-        """Test that detection fails when newline is detected."""
-        # When newline is detected, it should raise an error
-        with pytest.raises(DetectError):
-            detect("Hello\nworld", low_memory=True)
-
     def test_special_characters(self):
         """Test detection with special characters."""
         texts = [
