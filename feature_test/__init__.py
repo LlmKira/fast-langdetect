@@ -30,7 +30,9 @@ print(
 # When offline, its raise error
 print(
     detect_multilingual(
-        "Hello, world!你好世界!Привет, мир!", low_memory=False, use_strict_mode=True
+        "Hello, world!你好世界!Привет, мир!",
+        low_memory=False,
+        config=LangDetectConfig(allow_fallback=True)
     )
 )
 
