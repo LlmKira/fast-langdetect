@@ -93,16 +93,15 @@ class TestRealDetection:
             detector = LangDetector(config)
             detector.detect("Hello world", low_memory=False)
 
-    def test_not_found_model_with_fallback(self):
-        """Test fallback to small model when large model fails to load."""
+    def test_not_found_model_without_fallback_on_io_error(self):
+        """Non-memory errors should not fallback; they should raise."""
         config = LangDetectConfig(
             cache_dir="/nonexistent/path",
             allow_fallback=True,
         )
         detector = LangDetector(config)
-        result = detector.detect("Hello world", low_memory=False)
-        assert result["lang"] == "en"
-        assert 0.1 <= result["score"] <= 1.0
+        with pytest.raises(DetectError):
+            detector.detect("Hello world", low_memory=False)
 
 @pytest.mark.real
 @pytest.mark.slow

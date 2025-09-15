@@ -74,14 +74,10 @@ try:
 except DetectError as e:
     print(f"Detection failed: {e}")
 
-# How to deal with multiline text
-multiline_text = """
-Hello, world!
-This is a multiline text.
-"""
-multiline_text = multiline_text.replace("\n", " ")  
+# Multiline text is handled automatically (newlines are replaced)
+multiline_text = "Hello, world!\nThis is a multiline text."
 print(detect(multiline_text))
-# Output: {'lang': 'en', 'score': 0.8509423136711121}
+# Output: {'lang': 'en', 'score': 0.85}
 
 # Multi-language detection
 results = detect_multilingual(
@@ -151,6 +147,74 @@ result = detector.detect("Hello world")
 For text splitting based on language, please refer to the [split-lang](https://github.com/DoodleBears/split-lang)
 repository.
 
+
+### Input Handling
+
+You can control log verbosity and input normalization via `LangDetectConfig`:
+
+```python
+from fast_langdetect import LangDetectConfig, LangDetector
+
+config = LangDetectConfig(
+    max_input_length=80,    # default: auto-truncate long inputs for stable results
+)
+detector = LangDetector(config)
+print(detector.detect("Some very long text..."))
+```
+
+- Newlines are always replaced with spaces to avoid FastText errors (silent, no log).
+- When truncation happens, a WARNING is logged because it may reduce accuracy.
+- `max_input_length=80` truncates overly long inputs; set `None` to disable if you prefer no truncation.
+
+### Fallback Behavior
+
+- As of the latest change, the library only falls back to the bundled small model when a MemoryError occurs while loading the large model.
+- For other errors (e.g., I/O/permission errors, corrupted files, invalid paths), the error is raised as `DetectError` so you can diagnose the root cause quickly.
+- This avoids silently masking real issues and prevents unnecessary re-downloads that can slow execution.
+
+### Language Codes → English Names
+
+The detector returns fastText language codes (e.g., `en`, `zh`, `ja`, `pt-br`). To present user-friendly names, you can map codes to English names using a third-party library. Example using `langcodes`:
+
+```python
+# pip install langcodes
+from langcodes import Language
+
+OVERRIDES = {
+    # fastText-specific or variant tags commonly used
+    "yue": "Cantonese",
+    "wuu": "Wu Chinese",
+    "arz": "Egyptian Arabic",
+    "ckb": "Central Kurdish",
+    "kab": "Kabyle",
+    "zh-cn": "Chinese (China)",
+    "zh-tw": "Chinese (Taiwan)",
+    "pt-br": "Portuguese (Brazil)",
+}
+
+def code_to_english_name(code: str) -> str:
+    code = code.replace("_", "-").lower()
+    if code in OVERRIDES:
+        return OVERRIDES[code]
+    try:
+        # Display name in English; e.g. 'Portuguese (Brazil)'
+        return Language.get(code).display_name("en")
+    except Exception:
+        # Try the base language (e.g., 'pt' from 'pt-br')
+        base = code.split("-")[0]
+        try:
+            return Language.get(base).display_name("en")
+        except Exception:
+            return code
+
+# Usage
+from fast_langdetect import detect
+result = detect("Olá mundo", low_memory=False)
+print(code_to_english_name(result["lang"]))  # Portuguese (Brazil) or Portuguese
+```
+
+Alternatively, `pycountry` can be used for ISO 639 lookups (install with `pip install pycountry`), combined with a small override dict for non-standard tags like `pt-br`, `zh-cn`, `yue`, etc.
+
 ## Benchmark 📊
 
 For detailed benchmark results, refer
@@ -180,3 +244,12 @@ models
   year={2016}
 }
 ```
+
+## License 📄
+
+- Code: Released under the MIT License (see `LICENSE`).
+- Models: This package uses the pre-trained fastText language identification models (`lid.176.ftz` bundled for offline use and `lid.176.bin` downloaded as needed). These models are licensed under the Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0) license.
+- Attribution: fastText language identification models by Facebook AI Research. See the fastText docs and license for details:
+  - https://fasttext.cc/docs/en/language-identification.html
+  - https://creativecommons.org/licenses/by-sa/3.0/
+- Note: If you redistribute or modify the model files, you must comply with CC BY-SA 3.0. Inference usage via this library does not change the license of the model files themselves.

@@ -207,6 +207,7 @@ class LangDetectConfig:
     :param allow_fallback: Whether to fallback to small model
     :param disable_verify: Whether to disable MD5 verification
     :param normalize_input: Whether to normalize input text (e.g. lowercase for uppercase text)
+    :param max_input_length: If set, truncate input to this many characters (always debug-log the change)
     """
 
     def __init__(
@@ -218,6 +219,7 @@ class LangDetectConfig:
             disable_verify: bool = False,
             verify_hash: Optional[str] = None,
             normalize_input: bool = True,
+            max_input_length: Optional[int] = 80,
     ):
         self.cache_dir = cache_dir or CACHE_DIRECTORY
         self.custom_model_path = custom_model_path
@@ -227,6 +229,8 @@ class LangDetectConfig:
         self.disable_verify = disable_verify
         self.verify_hash = verify_hash
         self.normalize_input = normalize_input
+        # Input handling
+        self.max_input_length = max_input_length
         if self.custom_model_path and not Path(self.custom_model_path).exists():
             raise FileNotFoundError(f"fast-langdetect: Target model file not found: {self.custom_model_path}")
 
@@ -245,25 +249,23 @@ class LangDetector:
         self.config = config or LangDetectConfig()
         self._model_loader = ModelLoader()
 
-    @staticmethod
-    def _preprocess_text(text: str) -> str:
+    def _preprocess_text(self, text: str) -> str:
         """
         Check text for newline characters and length.
 
         :param text: Input text
         :return: Processed text
         """
-        if len(text) > 100:
-            logger.warning(
-                "fast-langdetect: Text may be too long. "
-                "Consider passing only a single sentence for accurate prediction."
-            )
+        # Always replace newline characters to avoid FastText errors (silent)
         if "\n" in text:
-            logger.warning(
-                "fast-langdetect: Newline characters will be removed. "
-                "Input should not contain newline characters. or FastText will raise an error."
-            )
             text = text.replace("\n", " ")
+
+        # Auto-truncate overly long input if configured
+        if self.config.max_input_length is not None and len(text) > self.config.max_input_length:
+            logger.info(
+                f"fast-langdetect: Truncating input from {len(text)} to {self.config.max_input_length} characters; may reduce accuracy."
+            )
+            text = text[: self.config.max_input_length]
         return text
 
     @staticmethod
@@ -427,11 +429,11 @@ def detect(
         use_strict_mode,
     ])
     if has_custom_params:
-        # Show warning if using individual parameters
+        # Warn on deprecated individual parameters
         logger.warning(
-            "fast-langdetect: Using individual parameters is deprecated. "
-            "Consider using LangDetectConfig for better configuration management. "
-            "Will be removed in next major release. see https://github.com/LlmKira/fast-langdetect/pull/16"
+            "fast-langdetect: Individual parameters are deprecated. "
+            "Use LangDetectConfig for configuration. "
+            "See https://github.com/LlmKira/fast-langdetect/pull/16"
         )
         custom_config = LangDetectConfig(
             proxy=model_download_proxy,
@@ -482,11 +484,11 @@ def detect_multilingual(
         use_strict_mode,
     ])
     if has_custom_params:
-        # Show warning if using individual parameters
+        # Warn on deprecated individual parameters
         logger.warning(
-            "fast-langdetect: Using individual parameters is deprecated. "
-            "Consider using LangDetectConfig for better configuration management. "
-            "Will be removed in next major release. see https://github.com/LlmKira/fast-langdetect/pull/16"
+            "fast-langdetect: Individual parameters are deprecated. "
+            "Use LangDetectConfig for configuration. "
+            "See https://github.com/LlmKira/fast-langdetect/pull/16"
         )
         custom_config = LangDetectConfig(
             proxy=model_download_proxy,
