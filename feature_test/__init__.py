@@ -3,17 +3,18 @@
 # @Author  : sudoskys
 from fast_langdetect import (
     detect,
-    detect_multilingual,
     detect_language,
     LangDetector,
     LangDetectConfig,
+    DetectError,
 )
 
-# 测试繁体，简体，日文，英文，韩文，法文，德文，西班牙文
-print(detect_multilingual("Hello, world!你好世界!Привет, мир!", low_memory=False))
-# [{'lang': 'ja', 'score': 0.32009604573249817}, {'lang': 'uk', 'score': 0.27781224250793457}, {'lang': 'zh', 'score': 0.17542070150375366}, {'lang': 'sr', 'score': 0.08751443773508072}, {'lang': 'bg', 'score': 0.05222449079155922}]
-print(detect("hello world"))
-print(detect("你好世界"))
+# 多语言候选（使用 full 模型，返回前 5 个候选）
+print(detect("Hello, world!你好世界!Привет, мир!", model="full", k=5))
+
+# 简单检测（返回列表，取前 1 个候选）
+print(detect("hello world", k=1))
+print(detect("你好世界", k=1))
 print(detect_language("Привет, мир!"))
 print(detect_language("你好世界"))
 print(detect_language("こんにちは世界"))
@@ -27,17 +28,22 @@ print(
     )
 )
 
-# When offline, its raise error
-print(
-    detect_multilingual(
-        "Hello, world!你好世界!Привет, мир!",
-        low_memory=False,
-        config=LangDetectConfig(allow_fallback=True)
+# 当离线或无网络时，使用 full 模型会抛出 DetectError；lite 模型离线可用
+try:
+    print(
+        detect(
+            "Hello, world!你好世界!Привет, мир!",
+            model="full",
+            k=5,
+            config=LangDetectConfig(),
+        )
     )
-)
+except DetectError as e:
+    print(f"Detection failed: {e}")
 
-config = LangDetectConfig(allow_fallback=False)
+# 使用自定义配置与实例化 Detector
+config = LangDetectConfig()
 detector = LangDetector(config)
-# 尝试使用大模型进行检测（应该会失败并回退到小模型）
-result = detector.detect("Hello world", low_memory=False)
+# 使用大模型进行检测（无自动回退）
+result = detector.detect("Hello world", model="full", k=1)
 print(result)
