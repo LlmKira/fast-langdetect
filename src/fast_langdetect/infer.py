@@ -190,6 +190,9 @@ class ModelLoader:
         """Load model on Unix-like systems."""
         try:
             return fasttext.load_model(str(model_path))
+        except MemoryError as e:
+            # Let MemoryError propagate up to be handled by _get_model
+            raise e
         except Exception as e:
             raise DetectError(f"fast-langdetect: Failed to load model: {e}")
 
@@ -317,7 +320,7 @@ class LangDetector:
                 )
             self._models[cache_key] = model
             return model
-        except Exception as e:
+        except MemoryError as e:
             if low_memory is not True and self.config.allow_fallback:
                 logger.info("fast-langdetect: Falling back to low-memory model...")
                 return self._get_model(low_memory=True)
