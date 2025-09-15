@@ -262,7 +262,7 @@ class LangDetector:
 
         # Auto-truncate overly long input if configured
         if self.config.max_input_length is not None and len(text) > self.config.max_input_length:
-            logger.warning(
+            logger.info(
                 f"fast-langdetect: Truncating input from {len(text)} to {self.config.max_input_length} characters; may reduce accuracy."
             )
             text = text[: self.config.max_input_length]
