@@ -166,6 +166,55 @@ print(detector.detect("Some very long text..."))
 - When truncation happens, a WARNING is logged because it may reduce accuracy.
 - `max_input_length=80` truncates overly long inputs; set `None` to disable if you prefer no truncation.
 
+### Fallback Behavior
+
+- As of the latest change, the library only falls back to the bundled small model when a MemoryError occurs while loading the large model.
+- For other errors (e.g., I/O/permission errors, corrupted files, invalid paths), the error is raised as `DetectError` so you can diagnose the root cause quickly.
+- This avoids silently masking real issues and prevents unnecessary re-downloads that can slow execution.
+
+### Language Codes → English Names
+
+The detector returns fastText language codes (e.g., `en`, `zh`, `ja`, `pt-br`). To present user-friendly names, you can map codes to English names using a third-party library. Example using `langcodes`:
+
+```python
+# pip install langcodes
+from langcodes import Language
+
+OVERRIDES = {
+    # fastText-specific or variant tags commonly used
+    "yue": "Cantonese",
+    "wuu": "Wu Chinese",
+    "arz": "Egyptian Arabic",
+    "ckb": "Central Kurdish",
+    "kab": "Kabyle",
+    "zh-cn": "Chinese (China)",
+    "zh-tw": "Chinese (Taiwan)",
+    "pt-br": "Portuguese (Brazil)",
+}
+
+def code_to_english_name(code: str) -> str:
+    code = code.replace("_", "-").lower()
+    if code in OVERRIDES:
+        return OVERRIDES[code]
+    try:
+        # Display name in English; e.g. 'Portuguese (Brazil)'
+        return Language.get(code).display_name("en")
+    except Exception:
+        # Try the base language (e.g., 'pt' from 'pt-br')
+        base = code.split("-")[0]
+        try:
+            return Language.get(base).display_name("en")
+        except Exception:
+            return code
+
+# Usage
+from fast_langdetect import detect
+result = detect("Olá mundo", low_memory=False)
+print(code_to_english_name(result["lang"]))  # Portuguese (Brazil) or Portuguese
+```
+
+Alternatively, `pycountry` can be used for ISO 639 lookups (install with `pip install pycountry`), combined with a small override dict for non-standard tags like `pt-br`, `zh-cn`, `yue`, etc.
+
 ## Benchmark 📊
 
 For detailed benchmark results, refer
