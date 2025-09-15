@@ -3,7 +3,6 @@
 
 from .infer import LangDetector, LangDetectConfig, DetectError  # noqa: F401
 from .infer import detect
-from .infer import detect_multilingual  # noqa: F401
 
 
 def is_japanese(string):
@@ -20,7 +19,9 @@ def detect_language(sentence: str, *, low_memory: bool = True):
     :param low_memory: bool (default: True) whether to use low memory mode
     :return: ZH, EN, JA, KO, FR, DE, ES, .... (two uppercase letters)
     """
-    lang_code = detect(sentence, low_memory=low_memory).get("lang").upper()
+    model = "lite" if low_memory else "full"
+    res_list = detect(sentence, model=model, k=1)
+    lang_code = res_list[0].get("lang").upper() if res_list else "EN"
     if lang_code == "JA" and not is_japanese(sentence):
         lang_code = "ZH"
     return lang_code

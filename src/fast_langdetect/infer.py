@@ -1,9 +1,19 @@
 # -*- coding: utf-8 -*-
 """
 FastText based language detection module.
+
+Fallback policy (keep it simple):
+- Only MemoryError triggers fallback: when loading the large model with
+  low_memory=False raises MemoryError, smart 会回退到小模型。
+- No fallback for I/O/network/integrity errors: download failures, offline,
+  invalid path, permission issues, verification failures all raise DetectError.
+
+Cache directory behavior:
+- Default cache (FTLANG_CACHE or internal temp-based path) is auto-created.
+- If a user-specified cache_dir does not exist, raise DetectError rather than
+  silently creating or using another location.
 """
 
-import hashlib
 import logging
 import os
 import platform
@@ -11,7 +21,7 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any, Literal
 
 import fasttext
 from robust_downloader import download
@@ -34,38 +44,6 @@ class DetectError(Exception):
     pass
 
 
-class ModelVerifier:
-    """Model file verification utilities."""
-
-    @staticmethod
-    def calculate_md5(file_path: Union[str, Path], chunk_size: int = 8192) -> str:
-        """
-        Calculate MD5 hash of a file.
-
-        :param file_path: Path to the file
-        :param chunk_size: Size of chunks to read
-
-        :return: MD5 hash string
-        """
-        md5 = hashlib.md5()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(chunk_size), b""):
-                md5.update(chunk)
-        return md5.hexdigest()
-
-    @staticmethod
-    def verify(file_path: Union[str, Path], expected_md5: str) -> bool:
-        """
-        Verify file integrity using MD5 hash.
-
-        :param file_path: Path to the file
-        :param expected_md5: Expected MD5 hash
-
-        :return: True if hash matches, False otherwise
-        """
-        return ModelVerifier.calculate_md5(file_path) == expected_md5
-
-
 class ModelDownloader:
     """Model download handler."""
 
@@ -86,6 +64,19 @@ class ModelDownloader:
             return
 
         logger.info(f"fast-langdetect: Downloading model from {url}")
+        # Ensure target directory handling is consistent across OSes
+        parent_dir = save_path.parent
+        default_cache_dir = Path(CACHE_DIRECTORY)
+        if not parent_dir.exists():
+            # Only auto-create when using the library's default cache dir
+            if parent_dir == default_cache_dir:
+                try:
+                    parent_dir.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    raise DetectError(f"fast-langdetect: Cannot create cache directory {parent_dir}: {e}") from e
+            else:
+                # For user-specified cache_dir, do not fallback; raise
+                raise DetectError(f"fast-langdetect: Cache directory not found: {parent_dir}")
         try:
             download(
                 url=url,
@@ -97,25 +88,17 @@ class ModelDownloader:
                 timeout=7,
             )
         except Exception as e:
-            raise DetectError(f"fast-langdetect: Download failed: {e}")
+            raise DetectError(f"fast-langdetect: Download failed: {e}") from e
 
 
 class ModelLoader:
     """Model loading and caching handler."""
 
     def __init__(self):
-        self._verifier = ModelVerifier()
         self._downloader = ModelDownloader()
 
-    def load_local(self, model_path: Path, verify_hash: Optional[str] = None) -> Any:
+    def load_local(self, model_path: Path) -> Any:
         """Load model from local file."""
-        if verify_hash and model_path.exists():
-            if not self._verifier.verify(model_path, verify_hash):
-                logger.warning(
-                    f"fast-langdetect: MD5 verification failed for {model_path}. "
-                    "This may affect prediction accuracy."
-                )
-
         if not model_path.exists():
             raise DetectError(f"Model file not found: {model_path}")
 
@@ -170,7 +153,7 @@ class ModelLoader:
             shutil.copy2(model_path, tmp_path)
             return fasttext.load_model(tmp_path)
         except Exception as e:
-            raise DetectError(f"Failed to load model using temporary file: {e}")
+            raise DetectError(f"Failed to load model using temporary file: {e}") from e
         finally:
             # Clean up temporary file
             if tmp_path and os.path.exists(tmp_path):
@@ -194,7 +177,7 @@ class ModelLoader:
             # Let MemoryError propagate up to be handled by _get_model
             raise e
         except Exception as e:
-            raise DetectError(f"fast-langdetect: Failed to load model: {e}")
+            raise DetectError(f"fast-langdetect: Failed to load model: {e}") from e
 
 
 class LangDetectConfig:
@@ -204,8 +187,6 @@ class LangDetectConfig:
     :param cache_dir: Directory for storing downloaded models
     :param custom_model_path: Path to custom model file (if using own model)
     :param proxy: HTTP proxy for downloads
-    :param allow_fallback: Whether to fallback to small model
-    :param disable_verify: Whether to disable MD5 verification
     :param normalize_input: Whether to normalize input text (e.g. lowercase for uppercase text)
     :param max_input_length: If set, truncate input to this many characters (always debug-log the change)
     """
@@ -215,19 +196,12 @@ class LangDetectConfig:
             cache_dir: Optional[str] = None,
             custom_model_path: Optional[str] = None,
             proxy: Optional[str] = None,
-            allow_fallback: bool = True,
-            disable_verify: bool = False,
-            verify_hash: Optional[str] = None,
             normalize_input: bool = True,
             max_input_length: Optional[int] = 80,
     ):
         self.cache_dir = cache_dir or CACHE_DIRECTORY
         self.custom_model_path = custom_model_path
         self.proxy = proxy
-        self.allow_fallback = allow_fallback
-        # Only verify large model
-        self.disable_verify = disable_verify
-        self.verify_hash = verify_hash
         self.normalize_input = normalize_input
         # Input handling
         self.max_input_length = max_input_length
@@ -295,8 +269,12 @@ class LangDetector:
 
         return text
 
-    def _get_model(self, low_memory: bool = True) -> Any:
-        """Get or load appropriate model."""
+    def _get_model(self, low_memory: bool = True, *, fallback_on_memory_error: bool = False) -> Any:
+        """Get or load appropriate model.
+
+        :param low_memory: choose small (True) or large (False) model
+        :param fallback_on_memory_error: override whether to fallback on MemoryError
+        """
         cache_key = "low_memory" if low_memory else "high_memory"
         if model := self._models.get(cache_key):
             return model
@@ -304,16 +282,11 @@ class LangDetector:
         try:
             if self.config.custom_model_path is not None:
                 # Load Custom Model
-                if self.config.disable_verify:
-                    self.config.verify_hash = None
                 model = self._model_loader.load_local(Path(self.config.custom_model_path))
             elif low_memory is True:
-                self.config.verify_hash = None
                 # Load Small Model
                 model = self._model_loader.load_local(_LOCAL_SMALL_MODEL_PATH)
             else:
-                if self.config.verify_hash is None and not self.config.disable_verify:
-                    self.config.verify_hash = self.VERIFY_FASTTEXT_LARGE_MODEL
                 # Download and Load Large Model
                 model_path = Path(self.config.cache_dir) / FASTTEXT_LARGE_MODEL_NAME
                 model = self._model_loader.load_with_download(
@@ -323,26 +296,24 @@ class LangDetector:
             self._models[cache_key] = model
             return model
         except MemoryError as e:
-            if low_memory is not True and self.config.allow_fallback:
+            if low_memory is not True and fallback_on_memory_error:
                 logger.info("fast-langdetect: Falling back to low-memory model...")
-                return self._get_model(low_memory=True)
+                return self._get_model(low_memory=True, fallback_on_memory_error=False)
             raise DetectError("Failed to load model") from e
 
-    def detect(
-            self, text: str, low_memory: bool = True
-    ) -> Dict[str, Union[str, float]]:
+    def detect(self, text: str) -> Dict[str, Union[str, float]]:
         """
         Detect primary language of text.
 
         :param text: Input text
-        :param low_memory: Whether to use memory-efficient model
 
         :return: Dictionary with language and confidence score
 
         :raises:
             DetectError: If detection fails
         """
-        model = self._get_model(low_memory)
+        # Default to smart behavior: try large, fallback on MemoryError
+        model = self._get_model(low_memory=False, fallback_on_memory_error=True)
         text = self._preprocess_text(text)
         normalized_text = self._normalize_text(text, self.config.normalize_input)
         try:
@@ -355,31 +326,38 @@ class LangDetector:
             logger.error(f"fast-langdetect: Language detection error: {e}")
             raise DetectError("Language detection failed") from e
 
-    def detect_multilingual(
+    def detect(
             self,
             text: str,
-            low_memory: bool = False,
-            k: int = 5,
+            *,
+            model: Literal["lite", "full", "auto"] = "auto",
+            k: int = 1,
             threshold: float = 0.0,
     ) -> List[Dict[str, Any]]:
         """
-        Detect multiple possible languages in text.
+        Detect language candidates. Always returns a list of results.
 
         :param text: Input text
-        :param low_memory: Whether to use memory-efficient model
+        :param model: 'lite' | 'full' | 'auto' (auto falls back on MemoryError)
         :param k: Number of top languages to return
         :param threshold: Minimum confidence threshold
-
-        :return: List of dictionaries with languages and scores
-
-        :raises:
-            DetectError: If detection fails
+        :raises DetectError: On detection failures
         """
-        model = self._get_model(low_memory)
+        if model not in {"lite", "full", "auto"}:
+            raise DetectError(f"Invalid model: {model}")
+
+        # Select model backend
+        if model == "lite":
+            ft_model = self._get_model(low_memory=True, fallback_on_memory_error=False)
+        elif model == "full":
+            ft_model = self._get_model(low_memory=False, fallback_on_memory_error=False)
+        else:
+            ft_model = self._get_model(low_memory=False, fallback_on_memory_error=True)
+
         text = self._preprocess_text(text)
         normalized_text = self._normalize_text(text, self.config.normalize_input)
         try:
-            labels, scores = model.predict(normalized_text, k=k, threshold=threshold)
+            labels, scores = ft_model.predict(normalized_text, k=k, threshold=threshold)
             results = [
                 {
                     "lang": label.replace("__label__", ""),
@@ -389,8 +367,8 @@ class LangDetector:
             ]
             return sorted(results, key=lambda x: x["score"], reverse=True)
         except Exception as e:
-            logger.error(f"fast-langdetect: Multilingual detection error: {e}")
-            raise DetectError("Multilingual detection failed.")
+            logger.error(f"fast-langdetect: Detection error: {e}")
+            raise DetectError("Language detection failed") from e
 
 
 # Global instance for simple usage
@@ -398,108 +376,12 @@ _default_detector = LangDetector()
 
 
 def detect(
-        text: str,
-        *,
-        low_memory: bool = True,
-        model_download_proxy: Optional[str] = None,
-        use_strict_mode: bool = False,
-        config: Optional[LangDetectConfig] = None,
-) -> Dict[str, Union[str, float]]:
-    """
-    Simple interface for language detection.
-    
-    Too long or too short text will effect the accuracy of the prediction.
-
-    :param text: Input text without newline characters
-    :param low_memory: Whether to use memory-efficient model
-    :param model_download_proxy: [DEPRECATED] Optional proxy for model download
-    :param use_strict_mode: [DEPRECATED] Disable fallback to small model
-    :param config: Optional LangDetectConfig object for advanced configuration
-
-    :return: Dictionary with language and confidence score
-    """
-    # Provide config
-    if config is not None:
-        detector = LangDetector(config)
-        return detector.detect(text, low_memory=low_memory)
-
-    # Check if any custom parameters are provided
-    has_custom_params = any([
-        model_download_proxy is not None,
-        use_strict_mode,
-    ])
-    if has_custom_params:
-        # Warn on deprecated individual parameters
-        logger.warning(
-            "fast-langdetect: Individual parameters are deprecated. "
-            "Use LangDetectConfig for configuration. "
-            "See https://github.com/LlmKira/fast-langdetect/pull/16"
-        )
-        custom_config = LangDetectConfig(
-            proxy=model_download_proxy,
-            allow_fallback=not use_strict_mode,
-        )
-        detector = LangDetector(custom_config)
-        return detector.detect(text, low_memory=low_memory)
-
-    # Use default detector
-    return _default_detector.detect(text, low_memory=low_memory)
-
-
-def detect_multilingual(
-        text: str,
-        *,
-        low_memory: bool = False,
-        model_download_proxy: Optional[str] = None,
-        k: int = 5,
-        threshold: float = 0.0,
-        use_strict_mode: bool = False,
-        config: Optional[LangDetectConfig] = None,
-) -> List[Dict[str, Any]]:
-    """
-    Simple interface for multi-language detection.
-
-    Too long or too short text will effect the accuracy of the prediction.
-
-    :param text: Input text without newline characters
-    :param low_memory: Whether to use memory-efficient model
-    :param k: Number of top languages to return
-    :param threshold: Minimum confidence threshold
-    :param model_download_proxy: [DEPRECATED] Optional proxy for model download
-    :param use_strict_mode: [DEPRECATED] Disable fallback to small model
-    :param config: Optional LangDetectConfig object for advanced configuration
-
-    :return: List of dictionaries with languages and scores
-    """
-    # Use provided config or create new config
-    if config is not None:
-        detector = LangDetector(config)
-        return detector.detect_multilingual(
-            text, low_memory=low_memory, k=k, threshold=threshold
-        )
-
-    # Check if any custom parameters are provided
-    has_custom_params = any([
-        model_download_proxy is not None,
-        use_strict_mode,
-    ])
-    if has_custom_params:
-        # Warn on deprecated individual parameters
-        logger.warning(
-            "fast-langdetect: Individual parameters are deprecated. "
-            "Use LangDetectConfig for configuration. "
-            "See https://github.com/LlmKira/fast-langdetect/pull/16"
-        )
-        custom_config = LangDetectConfig(
-            proxy=model_download_proxy,
-            allow_fallback=not use_strict_mode,
-        )
-        detector = LangDetector(custom_config)
-        return detector.detect_multilingual(
-            text, low_memory=low_memory, k=k, threshold=threshold
-        )
-
-    # Use default detector
-    return _default_detector.detect_multilingual(
-        text, low_memory=low_memory, k=k, threshold=threshold
-    )
+    text: str,
+    *,
+    model: Literal["lite", "full", "auto"] = "auto",
+    k: int = 1,
+    threshold: float = 0.0,
+    config: Optional[LangDetectConfig] = None,
+) -> List[Dict[str, Union[str, float]]]:
+    detector = LangDetector(config) if config is not None else _default_detector
+    return detector.detect(text, model=model, k=k, threshold=threshold)
