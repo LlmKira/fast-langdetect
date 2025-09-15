@@ -1,17 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 FastText based language detection module.
-
-Fallback policy (keep it simple):
-- Only MemoryError triggers fallback: when loading the large model with
-  low_memory=False raises MemoryError, smart 会回退到小模型。
-- No fallback for I/O/network/integrity errors: download failures, offline,
-  invalid path, permission issues, verification failures all raise DetectError.
-
-Cache directory behavior:
-- Default cache (FTLANG_CACHE or internal temp-based path) is auto-created.
-- If a user-specified cache_dir does not exist, raise DetectError rather than
-  silently creating or using another location.
 """
 
 import logging
