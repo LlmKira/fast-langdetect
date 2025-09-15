@@ -74,14 +74,10 @@ try:
 except DetectError as e:
     print(f"Detection failed: {e}")
 
-# How to deal with multiline text
-multiline_text = """
-Hello, world!
-This is a multiline text.
-"""
-multiline_text = multiline_text.replace("\n", " ")  
+# Multiline text is handled automatically (newlines are replaced)
+multiline_text = "Hello, world!\nThis is a multiline text."
 print(detect(multiline_text))
-# Output: {'lang': 'en', 'score': 0.8509423136711121}
+# Output: {'lang': 'en', 'score': 0.85}
 
 # Multi-language detection
 results = detect_multilingual(
@@ -151,6 +147,25 @@ result = detector.detect("Hello world")
 For text splitting based on language, please refer to the [split-lang](https://github.com/DoodleBears/split-lang)
 repository.
 
+
+### Input Handling
+
+You can control log verbosity and input normalization via `LangDetectConfig`:
+
+```python
+from fast_langdetect import LangDetectConfig, LangDetector
+
+config = LangDetectConfig(
+    max_input_length=80,    # default: auto-truncate long inputs for stable results
+)
+detector = LangDetector(config)
+print(detector.detect("Some very long text..."))
+```
+
+- Newlines are always replaced with spaces to avoid FastText errors (silent, no log).
+- When truncation happens, a WARNING is logged because it may reduce accuracy.
+- `max_input_length=80` truncates overly long inputs; set `None` to disable if you prefer no truncation.
+
 ## Benchmark 📊
 
 For detailed benchmark results, refer
@@ -180,3 +195,12 @@ models
   year={2016}
 }
 ```
+
+## License 📄
+
+- Code: Released under the MIT License (see `LICENSE`).
+- Models: This package uses the pre-trained fastText language identification models (`lid.176.ftz` bundled for offline use and `lid.176.bin` downloaded as needed). These models are licensed under the Creative Commons Attribution-ShareAlike 3.0 (CC BY-SA 3.0) license.
+- Attribution: fastText language identification models by Facebook AI Research. See the fastText docs and license for details:
+  - https://fasttext.cc/docs/en/language-identification.html
+  - https://creativecommons.org/licenses/by-sa/3.0/
+- Note: If you redistribute or modify the model files, you must comply with CC BY-SA 3.0. Inference usage via this library does not change the license of the model files themselves.
