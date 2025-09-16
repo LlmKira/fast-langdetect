@@ -5,7 +5,6 @@ from fast_langdetect import (
     detect,
     LangDetector,
     LangDetectConfig,
-    DetectError,
 )
 
 # Test samples with known languages
@@ -96,7 +95,7 @@ class TestRealDetection:
             cache_dir="/nonexistent/path",
         )
         detector = LangDetector(config)
-        with pytest.raises(DetectError):
+        with pytest.raises(FileNotFoundError):
             detector.detect("Hello world", model="full", k=1)
 
 @pytest.mark.real

@@ -6,7 +6,6 @@ from fast_langdetect import (
     detect_language,
     LangDetector,
     LangDetectConfig,
-    DetectError,
 )
 
 # 多语言候选（使用 full 模型，返回前 5 个候选）
@@ -28,7 +27,7 @@ print(
     )
 )
 
-# 当离线或无网络时，使用 full 模型会抛出 DetectError；lite 模型离线可用
+# 当离线或无网络时，使用 full 模型可能抛出标准 I/O/网络异常或库内异常；lite 模型离线可用
 try:
     print(
         detect(
@@ -38,7 +37,7 @@ try:
             config=LangDetectConfig(),
         )
     )
-except DetectError as e:
+except Exception as e:
     print(f"Detection failed: {e}")
 
 # 使用自定义配置与实例化 Detector

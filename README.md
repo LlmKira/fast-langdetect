@@ -19,7 +19,18 @@
 
 > ### Memory note
 > 
-> The lite model runs offline and is memory-friendly; the full model is larger and offers higher accuracy. Choose the model that best fits your constraints.
+> The lite model runs offline and is memory-friendly; the full model is larger and offers higher accuracy.
+> 
+> Approximate memory usage (RSS after load):
+> - Lite: ~45–60 MB
+> - Full: ~170–210 MB
+> - Auto: tries full first, falls back to lite only on MemoryError.
+> 
+> Notes:
+> - Measurements vary by Python version, OS, allocator, and import graph; treat these as practical ranges.
+> - Validate on your system if constrained; see `examples/memory_usage_check.py` (credit: script by github@JackyHe398).
+> 
+> Choose the model that best fits your constraints.
 
 ## Installation 💻
 
@@ -75,15 +86,22 @@ from fast_langdetect import LangDetectConfig, detect
 
 cfg = LangDetectConfig(cache_dir="/custom/cache/path")
 print(detect("Hello", model='full', config=cfg))
+
+# Set a default model via config and let calls omit model
+cfg_lite = LangDetectConfig(model="lite")
+print(detect("Hello", config=cfg_lite))          # uses lite by default
+print(detect("Bonjour", config=cfg_lite))        # uses lite by default
+print(detect("Hello", model='full', config=cfg_lite))  # per-call override to full
+
 ```
 
 ### Native API (Recommended)
 
 ```python
-from fast_langdetect import detect, LangDetector, LangDetectConfig, DetectError
+from fast_langdetect import detect, LangDetector, LangDetectConfig
 
-# Simple detection (auto behavior)
-print(detect("Hello, world!", model='auto', k=1))
+# Simple detection (uses config default if not provided; defaults to 'auto')
+print(detect("Hello, world!", k=1))
 # Output: [{'lang': 'en', 'score': 0.98}]
 
 # Using full model for better accuracy
@@ -91,14 +109,12 @@ print(detect("Hello, world!", model='full', k=1))
 # Output: [{'lang': 'en', 'score': 0.99}]
 
 # Custom configuration
-config = LangDetectConfig(cache_dir="/custom/cache/path")  # Custom model cache directory
+config = LangDetectConfig(cache_dir="/custom/cache/path", model="auto")  # Custom cache + default model
 detector = LangDetector(config)
 
-try:
-    result = detector.detect("Hello world", model='full', k=1)
-    print(result)  # [{'lang': 'en', 'score': 0.98}]
-except DetectError as e:
-    print(f"Detection failed: {e}")
+# Omit model to use config.model; pass model to override
+result = detector.detect("Hello world", k=1)
+print(result)  # [{'lang': 'en', 'score': 0.98}]
 
 # Multiline text is handled automatically (newlines are replaced)
 multiline_text = "Hello, world!\nThis is a multiline text."
@@ -121,9 +137,15 @@ print(results)
 
 #### Fallback Policy (Keep It Simple)
 
-- Only MemoryError triggers fallback (in `model='auto'`): when loading the full model runs out of memory, it falls back to the lite model.
-- I/O/network/permission/path/integrity errors raise `DetectError` (with original exception) — no silent fallback.
+- Only `MemoryError` triggers fallback (in `model='auto'`): when loading the full model runs out of memory, it falls back to the lite model.
+- I/O/network/permission/path/integrity errors raise standard exceptions (e.g., `FileNotFoundError`, `PermissionError`) or library-specific errors where applicable — no silent fallback.
 - `model='lite'` and `model='full'` never fallback by design.
+
+#### Errors
+
+- Base error: `FastLangdetectError` (library-specific failures).
+- Model loading failures: `ModelLoadError`.
+- Standard Python exceptions (e.g., `ValueError`, `TypeError`, `FileNotFoundError`, `MemoryError`) propagate when they are not library-specific.
 
 ### Convenient `detect_language` Function
 
@@ -177,7 +199,7 @@ print(detector.detect("Some very long text..."))
 ### Cache Directory Behavior
 
 - Default cache: if `cache_dir` is not set, models are stored under a system temp-based directory specified by `FTLANG_CACHE` or an internal default. This directory is created automatically when needed.
-- User-provided cache_dir: if you set `LangDetectConfig(cache_dir=...)` to a path that does not exist, the library raises `DetectError` instead of silently creating or using another location. Create the directory yourself if that’s intended.
+- User-provided cache_dir: if you set `LangDetectConfig(cache_dir=...)` to a path that does not exist, the library raises `FileNotFoundError` instead of silently creating or using another location. Create the directory yourself if that’s intended.
 
 ### Advanced Options (Optional)
 

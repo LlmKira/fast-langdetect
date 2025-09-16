@@ -27,9 +27,13 @@ FASTTEXT_LARGE_MODEL_NAME = "lid.176.bin"
 _LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 
 
-class DetectError(Exception):
-    """Base exception for language detection errors."""
+class FastLangdetectError(Exception):
+    """Base exception for library-specific failures."""
+    pass
 
+
+class ModelLoadError(FastLangdetectError):
+    """Raised when a FastText model fails to load."""
     pass
 
 
@@ -46,7 +50,8 @@ class ModelDownloader:
         :param proxy: Optional proxy URL
 
         :raises:
-            DetectError: If download fails
+            FastLangdetectError: If download fails
+            FileNotFoundError: If a user-provided cache directory does not exist
         """
         if save_path.exists():
             logger.info(f"fast-langdetect: Model exists at {save_path}")
@@ -62,10 +67,12 @@ class ModelDownloader:
                 try:
                     parent_dir.mkdir(parents=True, exist_ok=True)
                 except Exception as e:
-                    raise DetectError(f"fast-langdetect: Cannot create cache directory {parent_dir}: {e}") from e
+                    raise FastLangdetectError(
+                        f"fast-langdetect: Cannot create cache directory {parent_dir}: {e}"
+                    ) from e
             else:
                 # For user-specified cache_dir, do not fallback; raise
-                raise DetectError(f"fast-langdetect: Cache directory not found: {parent_dir}")
+                raise FileNotFoundError(f"fast-langdetect: Cache directory not found: {parent_dir}")
         try:
             download(
                 url=url,
@@ -77,7 +84,8 @@ class ModelDownloader:
                 timeout=7,
             )
         except Exception as e:
-            raise DetectError(f"fast-langdetect: Download failed: {e}") from e
+            # Download failures are library-specific
+            raise FastLangdetectError(f"fast-langdetect: Download failed: {e}") from e
 
 
 class ModelLoader:
@@ -89,7 +97,8 @@ class ModelLoader:
     def load_local(self, model_path: Path) -> Any:
         """Load model from local file."""
         if not model_path.exists():
-            raise DetectError(f"Model file not found: {model_path}")
+            # Missing path is a standard I/O error
+            raise FileNotFoundError(f"Model file not found: {model_path}")
 
         if platform.system() == "Windows":
             return self._load_windows_compatible(model_path)
@@ -112,7 +121,7 @@ class ModelLoader:
         
         :param model_path: Path to the model file
         :return: Loaded FastText model
-        :raises DetectError: If all loading strategies fail
+        :raises ModelLoadError: If all loading strategies fail
         """
         model_path_str = str(model_path.resolve())
 
@@ -142,7 +151,7 @@ class ModelLoader:
             shutil.copy2(model_path, tmp_path)
             return fasttext.load_model(tmp_path)
         except Exception as e:
-            raise DetectError(f"Failed to load model using temporary file: {e}") from e
+            raise ModelLoadError(f"Failed to load model using temporary file: {e}") from e
         finally:
             # Clean up temporary file
             if tmp_path and os.path.exists(tmp_path):
@@ -166,7 +175,7 @@ class ModelLoader:
             # Let MemoryError propagate up to be handled by _get_model
             raise e
         except Exception as e:
-            raise DetectError(f"fast-langdetect: Failed to load model: {e}") from e
+            raise ModelLoadError(f"fast-langdetect: Failed to load model: {e}") from e
 
 
 class LangDetectConfig:
@@ -178,6 +187,7 @@ class LangDetectConfig:
     :param proxy: HTTP proxy for downloads
     :param normalize_input: Whether to normalize input text (e.g. lowercase for uppercase text)
     :param max_input_length: If set, truncate input to this many characters (always debug-log the change)
+    :param model: Default model selection ('auto' | 'full' | 'lite') used when detect() is called without a model
     """
 
     def __init__(
@@ -187,6 +197,7 @@ class LangDetectConfig:
             proxy: Optional[str] = None,
             normalize_input: bool = True,
             max_input_length: Optional[int] = 80,
+            model: Literal["lite", "full", "auto"] = "auto",
     ):
         self.cache_dir = cache_dir or CACHE_DIRECTORY
         self.custom_model_path = custom_model_path
@@ -194,6 +205,7 @@ class LangDetectConfig:
         self.normalize_input = normalize_input
         # Input handling
         self.max_input_length = max_input_length
+        self.model: Literal["lite", "full", "auto"] = model
         if self.custom_model_path and not Path(self.custom_model_path).exists():
             raise FileNotFoundError(f"fast-langdetect: Target model file not found: {self.custom_model_path}")
 
@@ -285,41 +297,17 @@ class LangDetector:
             self._models[cache_key] = model
             return model
         except MemoryError as e:
-            if low_memory is not True and fallback_on_memory_error:
+            if (not low_memory) and fallback_on_memory_error:
                 logger.info("fast-langdetect: Falling back to low-memory model...")
                 return self._get_model(low_memory=True, fallback_on_memory_error=False)
-            raise DetectError("Failed to load model") from e
-
-    def detect(self, text: str) -> Dict[str, Union[str, float]]:
-        """
-        Detect primary language of text.
-
-        :param text: Input text
-
-        :return: Dictionary with language and confidence score
-
-        :raises:
-            DetectError: If detection fails
-        """
-        # Default to smart behavior: try large, fallback on MemoryError
-        model = self._get_model(low_memory=False, fallback_on_memory_error=True)
-        text = self._preprocess_text(text)
-        normalized_text = self._normalize_text(text, self.config.normalize_input)
-        try:
-            labels, scores = model.predict(normalized_text)
-            return {
-                "lang": labels[0].replace("__label__", ""),
-                "score": min(float(scores[0]), 1.0),
-            }
-        except Exception as e:
-            logger.error(f"fast-langdetect: Language detection error: {e}")
-            raise DetectError("Language detection failed") from e
+            # Preserve original MemoryError and traceback
+            raise
 
     def detect(
             self,
             text: str,
             *,
-            model: Literal["lite", "full", "auto"] = "auto",
+            model: Optional[Literal["lite", "full", "auto"]] = None,
             k: int = 1,
             threshold: float = 0.0,
     ) -> List[Dict[str, Any]]:
@@ -330,34 +318,37 @@ class LangDetector:
         :param model: 'lite' | 'full' | 'auto' (auto falls back on MemoryError)
         :param k: Number of top languages to return
         :param threshold: Minimum confidence threshold
-        :raises DetectError: On detection failures
+        :raises FastLangdetectError: For library-specific failures (e.g., invalid model)
+        :raises Exception: Standard Python exceptions propagate, such as MemoryError, FileNotFoundError
         """
-        if model not in {"lite", "full", "auto"}:
-            raise DetectError(f"Invalid model: {model}")
+        # Determine model to use (config default if not provided)
+        sel_model: Literal["lite", "full", "auto"]
+        if model is None:
+            sel_model = self.config.model
+        else:
+            if model not in {"lite", "full", "auto"}:  # type: ignore[comparison-overlap]
+                raise FastLangdetectError(f"Invalid model: {model}")
+            sel_model = model
 
         # Select model backend
-        if model == "lite":
+        if sel_model == "lite":
             ft_model = self._get_model(low_memory=True, fallback_on_memory_error=False)
-        elif model == "full":
+        elif sel_model == "full":
             ft_model = self._get_model(low_memory=False, fallback_on_memory_error=False)
         else:
             ft_model = self._get_model(low_memory=False, fallback_on_memory_error=True)
 
         text = self._preprocess_text(text)
         normalized_text = self._normalize_text(text, self.config.normalize_input)
-        try:
-            labels, scores = ft_model.predict(normalized_text, k=k, threshold=threshold)
-            results = [
-                {
-                    "lang": label.replace("__label__", ""),
-                    "score": min(float(score), 1.0),
-                }
-                for label, score in zip(labels, scores)
-            ]
-            return sorted(results, key=lambda x: x["score"], reverse=True)
-        except Exception as e:
-            logger.error(f"fast-langdetect: Detection error: {e}")
-            raise DetectError("Language detection failed") from e
+        labels, scores = ft_model.predict(normalized_text, k=k, threshold=threshold)
+        results = [
+            {
+                "lang": label.replace("__label__", ""),
+                "score": min(float(score), 1.0),
+            }
+            for label, score in zip(labels, scores)
+        ]
+        return sorted(results, key=lambda x: x["score"], reverse=True)
 
 
 # Global instance for simple usage
@@ -367,7 +358,7 @@ _default_detector = LangDetector()
 def detect(
     text: str,
     *,
-    model: Literal["lite", "full", "auto"] = "auto",
+    model: Optional[Literal["lite", "full", "auto"]] = None,
     k: int = 1,
     threshold: float = 0.0,
     config: Optional[LangDetectConfig] = None,
