@@ -28,7 +28,9 @@
 > 
 > Notes:
 > - Measurements vary by Python version, OS, allocator, and import graph; treat these as practical ranges.
-> - Validate on your system if constrained; see `examples/memory_usage_check.py` (credit: script by github@JackyHe398).
+> - Validate on your system if constrained; see `examples/memory_usage_check.py` (credit: script by github@JackyHe398`).
+> - Run memory checks in a clean terminal session. IDEs/REPLs may preload frameworks and inflate peak RSS (ru_maxrss),
+>   leading to very large peaks with near-zero deltas.
 > 
 > Choose the model that best fits your constraints.
 
