@@ -9,7 +9,7 @@
 **`fast-langdetect`** is an ultra-fast and highly accurate language detection library based on FastText, a library developed by Facebook. Its incredible speed and accuracy make it 80x faster than conventional methods and deliver up to 95% accuracy.
 
 - Supported Python `3.9` to `3.13`.
-- Works offline with the lite model
+- Works offline with the lite model.
 - No `numpy` required (thanks to @dalf).
 
 > ### Background
@@ -56,88 +56,38 @@ For higher accuracy, prefer the full model via `detect(text, model='full')`. For
 
 ### Prerequisites
 
-- If the sample is too long or too short, the accuracy will be reduced.
-- The model will be downloaded to system temporary directory by default. You can customize it by:
+- If the sample is too long (generally over 80 characters) or too short, accuracy will be reduced.
+- The model downloads to the system temporary directory by default. You can customize it by:
   - Setting `FTLANG_CACHE` environment variable
   - Using `LangDetectConfig(cache_dir="your/path")`
 
-### Simple Usage (Recommended)
-
-Call by model explicitly — clear and predictable, and use `k` to get multiple candidates. The function always returns a list of results:
+### Quick Start
 
 ```python
 from fast_langdetect import detect
 
-# Lite model (offline, smaller, faster) — never falls back
-print(detect("Hello", model='lite', k=1))          # -> [{'lang': 'en', 'score': ...}]
-
-# Full model (downloaded to cache, higher accuracy) — never falls back
-print(detect("Hello", model='full', k=1))          # -> [{'lang': 'en', 'score': ...}]
-
-# Auto mode: try full, fallback to lite only on MemoryError
-print(detect("Hello", model='auto', k=1))          # -> [{'lang': 'en', 'score': ...}]
-
-# Multilingual: top 3 candidates (always a list)
-print(detect("Hello 世界 こんにちは", model='auto', k=3))
+print(detect("Hello, world!", model="auto", k=1))
+print(detect("Hello 世界 こんにちは", model="auto", k=3))
 ```
 
-If you need a custom cache directory, pass `LangDetectConfig`:
+`detect` always returns a list of candidates ordered by score. Use `model="full"` for the best accuracy or `model="lite"` for an offline-only workflow.
+
+### Reuse Configuration
 
 ```python
-from fast_langdetect import LangDetectConfig, detect
+from fast_langdetect import LangDetectConfig, LangDetector
 
-cfg = LangDetectConfig(cache_dir="/custom/cache/path")
-print(detect("Hello", model='full', config=cfg))
-
-# Set a default model via config and let calls omit model
-cfg_lite = LangDetectConfig(model="lite")
-print(detect("Hello", config=cfg_lite))          # uses lite by default
-print(detect("Bonjour", config=cfg_lite))        # uses lite by default
-print(detect("Hello", model='full', config=cfg_lite))  # per-call override to full
-
-```
-
-### Native API (Recommended)
-
-```python
-from fast_langdetect import detect, LangDetector, LangDetectConfig
-
-# Simple detection (uses config default if not provided; defaults to 'auto')
-print(detect("Hello, world!", k=1))
-# Output: [{'lang': 'en', 'score': 0.98}]
-
-# Using full model for better accuracy
-print(detect("Hello, world!", model='full', k=1))
-# Output: [{'lang': 'en', 'score': 0.99}]
-
-# Custom configuration
-config = LangDetectConfig(cache_dir="/custom/cache/path", model="auto")  # Custom cache + default model
+config = LangDetectConfig(cache_dir="/custom/cache", model="lite")
 detector = LangDetector(config)
-
-# Omit model to use config.model; pass model to override
-result = detector.detect("Hello world", k=1)
-print(result)  # [{'lang': 'en', 'score': 0.98}]
-
-# Multiline text is handled automatically (newlines are replaced)
-multiline_text = "Hello, world!\nThis is a multiline text."
-print(detect(multiline_text, k=1))
-# Output: [{'lang': 'en', 'score': 0.85}]
-
-# Multi-language detection
-results = detect(
-    "Hello 世界 こんにちは",
-    model='auto',
-    k=3               # Return top 3 languages (auto model loading)
-)
-print(results)
-# Output: [
-#     {'lang': 'ja', 'score': 0.4}, 
-#     {'lang': 'zh', 'score': 0.3}, 
-#     {'lang': 'en', 'score': 0.2}
-# ]
+print(detector.detect("Bonjour", k=1))
+print(detector.detect("Hola", model="full", k=1))
 ```
 
-#### Fallback Policy (Keep It Simple)
+Instantiate `LangDetector` when you want to reuse a model or share configuration between calls without re-downloading files.
+
+#### 🌵 Fallback Policy 
+
+Keep It Simple!
 
 - Only `MemoryError` triggers fallback (in `model='auto'`): when loading the full model runs out of memory, it falls back to the lite model.
 - I/O/network/permission/path/integrity errors raise standard exceptions (e.g., `FileNotFoundError`, `PermissionError`) or library-specific errors where applicable — no silent fallback.
@@ -148,31 +98,6 @@ print(results)
 - Base error: `FastLangdetectError` (library-specific failures).
 - Model loading failures: `ModelLoadError`.
 - Standard Python exceptions (e.g., `ValueError`, `TypeError`, `FileNotFoundError`, `MemoryError`) propagate when they are not library-specific.
-
-### Convenient `detect_language` Function
-
-```python
-from fast_langdetect import detect_language
-
-# Single language detection
-print(detect_language("Hello, world!"))
-# Output: EN
-
-print(detect_language("Привет, мир!"))
-# Output: RU
-
-print(detect_language("你好，世界！"))
-# Output: ZH
-```
-
-### Load Custom Models
-
-```python
-# Load model from local file
-config = LangDetectConfig(custom_model_path="/path/to/your/model.bin")
-detector = LangDetector(config)
-result = detector.detect("Hello world", model='auto', k=1)
-```
 
 ### Splitting Text by Language 🌐
 
@@ -187,16 +112,14 @@ You can control log verbosity and input normalization via `LangDetectConfig`:
 ```python
 from fast_langdetect import LangDetectConfig, LangDetector
 
-config = LangDetectConfig(
-    max_input_length=80,    # default: auto-truncate long inputs for stable results
-)
+config = LangDetectConfig(max_input_length=200)
 detector = LangDetector(config)
-print(detector.detect("Some very long text..."))
+print(detector.detect("Some very long text..." * 5))
 ```
 
 - Newlines are always replaced with spaces to avoid FastText errors (silent, no log).
 - When truncation happens, a WARNING is logged because it may reduce accuracy.
-- `max_input_length=80` truncates overly long inputs; set `None` to disable if you prefer no truncation.
+- The default `max_input_length` is 80 characters (optimal for accuracy); increase it if you need longer samples, or set `None` to disable truncation entirely.
 
 ### Cache Directory Behavior
 
@@ -209,46 +132,105 @@ The constructor exposes a few advanced knobs (`proxy`, `normalize_input`, `max_i
 
 ### Language Codes → English Names
 
-The detector returns fastText language codes (e.g., `en`, `zh`, `ja`, `pt-br`). To present user-friendly names, you can map codes to English names using a third-party library. Example using `langcodes`:
+fastText reports BCP-47 style tags such as `en`, `zh-cn`, `pt-br`, `yue`. The detector keeps those codes so you can decide how to display them. Choose the approach that fits your product:
+
+- **Small, fixed list?** Maintain a hand-written mapping and fall back to the raw code for anything unexpected.
 
 ```python
-# pip install langcodes
-from langcodes import Language
-
-OVERRIDES = {
-    # fastText-specific or variant tags commonly used
+FASTTEXT_DISPLAY_NAMES = {
+    "en": "English",
+    "zh": "Chinese",
+    "zh-cn": "Chinese (China)",
+    "zh-tw": "Chinese (Taiwan)",
+    "pt": "Portuguese",
+    "pt-br": "Portuguese (Brazil)",
     "yue": "Cantonese",
     "wuu": "Wu Chinese",
     "arz": "Egyptian Arabic",
     "ckb": "Central Kurdish",
     "kab": "Kabyle",
-    "zh-cn": "Chinese (China)",
-    "zh-tw": "Chinese (Taiwan)",
-    "pt-br": "Portuguese (Brazil)",
 }
 
-def code_to_english_name(code: str) -> str:
-    code = code.replace("_", "-").lower()
-    if code in OVERRIDES:
-        return OVERRIDES[code]
+def code_to_display_name(code: str) -> str:
+    return FASTTEXT_DISPLAY_NAMES.get(code.lower(), code)
+
+print(code_to_display_name("pt-br"))
+print(code_to_display_name("de"))
+```
+
+- **Need coverage for all 176 fastText languages?** Use a language database library that understands subtags and scripts. Two popular libraries are `langcodes` and `pycountry`.
+
+```python
+# pip install langcodes
+from langcodes import Language
+
+LANG_OVERRIDES = {
+    "pt-br": "Portuguese (Brazil)",
+    "zh-cn": "Chinese (China)",
+    "zh-tw": "Chinese (Taiwan)",
+    "yue": "Cantonese",
+}
+
+def fasttext_to_name(code: str) -> str:
+    normalized = code.replace("_", "-").lower()
+    if normalized in LANG_OVERRIDES:
+        return LANG_OVERRIDES[normalized]
     try:
-        # Display name in English; e.g. 'Portuguese (Brazil)'
-        return Language.get(code).display_name("en")
+        return Language.get(normalized).display_name("en")
     except Exception:
-        # Try the base language (e.g., 'pt' from 'pt-br')
-        base = code.split("-")[0]
+        base = normalized.split("-")[0]
         try:
             return Language.get(base).display_name("en")
         except Exception:
             return code
 
-# Usage
 from fast_langdetect import detect
-result = detect("Olá mundo", model='full', k=1)
-print(code_to_english_name(result[0]["lang"]))  # Portuguese (Brazil) or Portuguese
+result = detect("Olá mundo", model="full", k=1)
+print(fasttext_to_name(result[0]["lang"]))
 ```
 
-Alternatively, `pycountry` can be used for ISO 639 lookups (install with `pip install pycountry`), combined with a small override dict for non-standard tags like `pt-br`, `zh-cn`, `yue`, etc.
+`pycountry` works similarly (`pip install pycountry`). Use `pycountry.languages.lookup("pt")` for fuzzy matching or `pycountry.languages.get(alpha_2="pt")` for exact lookups, and pair it with a small override dictionary for non-standard tags such as `pt-br`, `zh-cn`, or dialect codes like `yue`.
+
+```python
+# pip install pycountry
+import pycountry
+
+FASTTEXT_OVERRIDES = {
+    "pt-br": "Portuguese (Brazil)",
+    "zh-cn": "Chinese (China)",
+    "zh-tw": "Chinese (Taiwan)",
+    "yue": "Cantonese",
+}
+
+def fasttext_to_name_pycountry(code: str) -> str:
+    normalized = code.replace("_", "-").lower()
+    if normalized in FASTTEXT_OVERRIDES:
+        return FASTTEXT_OVERRIDES[normalized]
+    try:
+        return pycountry.languages.lookup(normalized).name
+    except LookupError:
+        base = normalized.split("-")[0]
+        try:
+            return pycountry.languages.lookup(base).name
+        except LookupError:
+            return code
+
+from fast_langdetect import detect
+result = detect("Olá mundo", model="full", k=1)
+print(fasttext_to_name_pycountry(result[0]["lang"]))
+```
+
+### Load Custom Models
+
+```python
+from importlib import resources
+from fast_langdetect import LangDetectConfig, LangDetector
+
+with resources.path("fast_langdetect.resources", "lid.176.ftz") as model_path:
+    config = LangDetectConfig(custom_model_path=str(model_path))
+    detector = LangDetector(config)
+    print(detector.detect("Hello world", model="lite", k=1))
+```
 
 ## Benchmark 📊
 
