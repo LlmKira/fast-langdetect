@@ -3,10 +3,8 @@
 import pytest
 from fast_langdetect import (
     detect,
-    detect_multilingual,
     LangDetector,
     LangDetectConfig,
-    DetectError,
 )
 
 # Test samples with known languages
@@ -35,13 +33,13 @@ class TestRealDetection:
         """Test basic language detection for various languages."""
         result = detect(text)
         print(result)
-        assert result["lang"] == expected
-        assert 0.1 <= result["score"] <= 1.0
+        assert result[0]["lang"] == expected
+        assert 0.1 <= result[0]["score"] <= 1.0
 
     def test_multilingual_detection(self):
         """Test multilingual detection with mixed language text."""
         for text in MIXED_SAMPLES:
-            results = detect_multilingual(text, k=3)
+            results = detect(text, k=3)
             assert len(results) == 3
             # 验证结果是按置信度排序的
             assert all(
@@ -52,56 +50,53 @@ class TestRealDetection:
     def test_low_memory_mode(self):
         """Test detection works in low memory mode."""
         for text, expected in SAMPLES:
-            result = detect(text, low_memory=True)
-            assert result["lang"] == expected
+            result = detect(text, model="lite")
+            assert result[0]["lang"] == expected
 
     def test_strict_mode(self):
         """Test detection in strict mode."""
-        result = detect(SAMPLES[0][0], use_strict_mode=True)
-        assert result["lang"] == SAMPLES[0][1]
+        result = detect(SAMPLES[0][0], model="full")
+        assert result[0]["lang"] == SAMPLES[0][1]
 
     def test_long_text(self):
         """Test detection with longer text."""
         long_text = " ".join([text for text, _ in SAMPLES])
         result = detect(long_text)
-        assert "lang" in result
-        assert "score" in result
+        assert len(result) >= 1
+        assert "lang" in result[0]
+        assert "score" in result[0]
 
     def test_very_short_text(self):
         """Test detection with very short text."""
         result = detect("Hi")
-        assert "lang" in result
-        assert "score" in result
+        assert "lang" in result[0]
+        assert "score" in result[0]
 
     def test_custom_config(self):
         """Test detection with custom configuration."""
-        config = LangDetectConfig(allow_fallback=False)
+        config = LangDetectConfig()
         detector = LangDetector(config)
-        result = detector.detect(SAMPLES[0][0])
-        assert result["lang"] == SAMPLES[0][1]
+        result = detector.detect(SAMPLES[0][0], model="auto", k=1)
+        assert result[0]["lang"] == SAMPLES[0][1]
 
     def test_not_found_model(self):
         """Test fallback to small model when large model fails to load."""
         # 创建一个配置，指定一个不存在的大模型路径
 
         with pytest.raises(FileNotFoundError):
-            config = LangDetectConfig(
+            LangDetectConfig(
                 cache_dir="/nonexistent/path",
                 custom_model_path="invalid_path",
-                allow_fallback=True,
             )
-            detector = LangDetector(config)
-            detector.detect("Hello world", low_memory=False)
 
     def test_not_found_model_without_fallback_on_io_error(self):
         """Non-memory errors should not fallback; they should raise."""
         config = LangDetectConfig(
             cache_dir="/nonexistent/path",
-            allow_fallback=True,
         )
         detector = LangDetector(config)
-        with pytest.raises(DetectError):
-            detector.detect("Hello world", low_memory=False)
+        with pytest.raises(FileNotFoundError):
+            detector.detect("Hello world", model="full", k=1)
 
 @pytest.mark.real
 @pytest.mark.slow
@@ -111,8 +106,8 @@ class TestEdgeCases:
     def test_empty_string(self):
         """Test detection with empty string."""
         result = detect("")
-        assert "lang" in result
-        assert "score" in result
+        assert "lang" in result[0]
+        assert "score" in result[0]
 
     def test_special_characters(self):
         """Test detection with special characters."""
@@ -123,14 +118,14 @@ class TestEdgeCases:
         ]
         for text in texts:
             result = detect(text)
-            assert "lang" in result
-            assert "score" in result
+            assert "lang" in result[0]
+            assert "score" in result[0]
 
     def test_numbers_only(self):
         """Test detection with numbers only."""
         result = detect("12345")
-        assert "lang" in result
-        assert "score" in result
+        assert "lang" in result[0]
+        assert "score" in result[0]
 
     def test_mixed_scripts(self):
         """Test detection with mixed scripts."""
@@ -140,5 +135,5 @@ class TestEdgeCases:
             "Hello! 你好! こんにちは!",
         ]
         for text in mixed_texts:
-            results = detect_multilingual(text, k=3)
+            results = detect(text, k=3)
             assert len(results) == 3

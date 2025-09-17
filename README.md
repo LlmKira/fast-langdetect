@@ -9,7 +9,7 @@
 **`fast-langdetect`** is an ultra-fast and highly accurate language detection library based on FastText, a library developed by Facebook. Its incredible speed and accuracy make it 80x faster than conventional methods and deliver up to 95% accuracy.
 
 - Supported Python `3.9` to `3.13`.
-- Works offline  in low memory mode
+- Works offline with the lite model
 - No `numpy` required (thanks to @dalf).
 
 > ### Background
@@ -17,9 +17,22 @@
 > This project builds upon [zafercavdar/fasttext-langdetect](https://github.com/zafercavdar/fasttext-langdetect#benchmark) with enhancements in packaging.
 > For more information about the underlying model, see the official FastText documentation: [Language Identification](https://fasttext.cc/docs/en/language-identification.html).
 
-> ### Possible memory usage
+> ### Memory note
 > 
-> *This library requires at least **200MB memory** in low-memory mode.*
+> The lite model runs offline and is memory-friendly; the full model is larger and offers higher accuracy.
+> 
+> Approximate memory usage (RSS after load):
+> - Lite: ~45–60 MB
+> - Full: ~170–210 MB
+> - Auto: tries full first, falls back to lite only on MemoryError.
+> 
+> Notes:
+> - Measurements vary by Python version, OS, allocator, and import graph; treat these as practical ranges.
+> - Validate on your system if constrained; see `examples/memory_usage_check.py` (credit: script by github@JackyHe398`).
+> - Run memory checks in a clean terminal session. IDEs/REPLs may preload frameworks and inflate peak RSS (ru_maxrss),
+>   leading to very large peaks with near-zero deltas.
+> 
+> Choose the model that best fits your constraints.
 
 ## Installation 💻
 
@@ -39,7 +52,7 @@ pdm add fast-langdetect
 
 ## Usage 🖥️
 
-In scenarios **where accuracy is important**, you should not rely on the detection results of small models, use `low_memory=False` to download larger models!
+For higher accuracy, prefer the full model via `detect(text, model='full')`. For robust behavior under memory pressure, use `detect(text, model='auto')` which falls back to the lite model only on MemoryError.
 
 ### Prerequisites
 
@@ -48,42 +61,73 @@ In scenarios **where accuracy is important**, you should not rely on the detecti
   - Setting `FTLANG_CACHE` environment variable
   - Using `LangDetectConfig(cache_dir="your/path")`
 
+### Simple Usage (Recommended)
+
+Call by model explicitly — clear and predictable, and use `k` to get multiple candidates. The function always returns a list of results:
+
+```python
+from fast_langdetect import detect
+
+# Lite model (offline, smaller, faster) — never falls back
+print(detect("Hello", model='lite', k=1))          # -> [{'lang': 'en', 'score': ...}]
+
+# Full model (downloaded to cache, higher accuracy) — never falls back
+print(detect("Hello", model='full', k=1))          # -> [{'lang': 'en', 'score': ...}]
+
+# Auto mode: try full, fallback to lite only on MemoryError
+print(detect("Hello", model='auto', k=1))          # -> [{'lang': 'en', 'score': ...}]
+
+# Multilingual: top 3 candidates (always a list)
+print(detect("Hello 世界 こんにちは", model='auto', k=3))
+```
+
+If you need a custom cache directory, pass `LangDetectConfig`:
+
+```python
+from fast_langdetect import LangDetectConfig, detect
+
+cfg = LangDetectConfig(cache_dir="/custom/cache/path")
+print(detect("Hello", model='full', config=cfg))
+
+# Set a default model via config and let calls omit model
+cfg_lite = LangDetectConfig(model="lite")
+print(detect("Hello", config=cfg_lite))          # uses lite by default
+print(detect("Bonjour", config=cfg_lite))        # uses lite by default
+print(detect("Hello", model='full', config=cfg_lite))  # per-call override to full
+
+```
+
 ### Native API (Recommended)
 
 ```python
-from fast_langdetect import detect, detect_multilingual, LangDetector, LangDetectConfig, DetectError
+from fast_langdetect import detect, LangDetector, LangDetectConfig
 
-# Simple detection
-print(detect("Hello, world!"))
-# Output: {'lang': 'en', 'score': 0.12450417876243591}
+# Simple detection (uses config default if not provided; defaults to 'auto')
+print(detect("Hello, world!", k=1))
+# Output: [{'lang': 'en', 'score': 0.98}]
 
-# Using large model for better accuracy
-print(detect("Hello, world!", low_memory=False))
-# Output: {'lang': 'en', 'score': 0.98765432109876}
+# Using full model for better accuracy
+print(detect("Hello, world!", model='full', k=1))
+# Output: [{'lang': 'en', 'score': 0.99}]
 
-# Custom configuration with fallback mechanism
-config = LangDetectConfig(
-    cache_dir="/custom/cache/path",  # Custom model cache directory
-    allow_fallback=True             # Enable fallback to small model if large model fails
-)
+# Custom configuration
+config = LangDetectConfig(cache_dir="/custom/cache/path", model="auto")  # Custom cache + default model
 detector = LangDetector(config)
 
-try:
-    result = detector.detect("Hello world", low_memory=False)
-    print(result)  # {'lang': 'en', 'score': 0.98}
-except DetectError as e:
-    print(f"Detection failed: {e}")
+# Omit model to use config.model; pass model to override
+result = detector.detect("Hello world", k=1)
+print(result)  # [{'lang': 'en', 'score': 0.98}]
 
 # Multiline text is handled automatically (newlines are replaced)
 multiline_text = "Hello, world!\nThis is a multiline text."
-print(detect(multiline_text))
-# Output: {'lang': 'en', 'score': 0.85}
+print(detect(multiline_text, k=1))
+# Output: [{'lang': 'en', 'score': 0.85}]
 
 # Multi-language detection
-results = detect_multilingual(
-    "Hello 世界 こんにちは", 
-    low_memory=False,  # Use large model for better accuracy
-    k=3               # Return top 3 languages
+results = detect(
+    "Hello 世界 こんにちは",
+    model='auto',
+    k=3               # Return top 3 languages (auto model loading)
 )
 print(results)
 # Output: [
@@ -93,26 +137,17 @@ print(results)
 # ]
 ```
 
-#### Fallbacks
+#### Fallback Policy (Keep It Simple)
 
-We provide a fallback mechanism: when `allow_fallback=True`, if the program fails to load the **large model** (`low_memory=False`), it will fall back to the offline **small model** to complete the prediction task.
+- Only `MemoryError` triggers fallback (in `model='auto'`): when loading the full model runs out of memory, it falls back to the lite model.
+- I/O/network/permission/path/integrity errors raise standard exceptions (e.g., `FileNotFoundError`, `PermissionError`) or library-specific errors where applicable — no silent fallback.
+- `model='lite'` and `model='full'` never fallback by design.
 
-```python
-# Disable fallback - will raise error if large model fails to load
-# But fallback disabled when custom_model_path is not None, because its a custom model, we will directly use it.
-import tempfile
-config = LangDetectConfig(
-    allow_fallback=False, 
-    custom_model_path=None,
-    cache_dir=tempfile.gettempdir(),
-    )
-detector = LangDetector(config)
+#### Errors
 
-try:
-    result = detector.detect("Hello world", low_memory=False)
-except DetectError as e:
-    print("Model loading failed and fallback is disabled")
-```
+- Base error: `FastLangdetectError` (library-specific failures).
+- Model loading failures: `ModelLoadError`.
+- Standard Python exceptions (e.g., `ValueError`, `TypeError`, `FileNotFoundError`, `MemoryError`) propagate when they are not library-specific.
 
 ### Convenient `detect_language` Function
 
@@ -134,12 +169,9 @@ print(detect_language("你好，世界！"))
 
 ```python
 # Load model from local file
-config = LangDetectConfig(
-    custom_model_path="/path/to/your/model.bin",  # Use local model file
-    disable_verify=True                     # Skip MD5 verification
-)
+config = LangDetectConfig(custom_model_path="/path/to/your/model.bin")
 detector = LangDetector(config)
-result = detector.detect("Hello world")
+result = detector.detect("Hello world", model='auto', k=1)
 ```
 
 ### Splitting Text by Language 🌐
@@ -166,11 +198,14 @@ print(detector.detect("Some very long text..."))
 - When truncation happens, a WARNING is logged because it may reduce accuracy.
 - `max_input_length=80` truncates overly long inputs; set `None` to disable if you prefer no truncation.
 
-### Fallback Behavior
+### Cache Directory Behavior
 
-- As of the latest change, the library only falls back to the bundled small model when a MemoryError occurs while loading the large model.
-- For other errors (e.g., I/O/permission errors, corrupted files, invalid paths), the error is raised as `DetectError` so you can diagnose the root cause quickly.
-- This avoids silently masking real issues and prevents unnecessary re-downloads that can slow execution.
+- Default cache: if `cache_dir` is not set, models are stored under a system temp-based directory specified by `FTLANG_CACHE` or an internal default. This directory is created automatically when needed.
+- User-provided cache_dir: if you set `LangDetectConfig(cache_dir=...)` to a path that does not exist, the library raises `FileNotFoundError` instead of silently creating or using another location. Create the directory yourself if that’s intended.
+
+### Advanced Options (Optional)
+
+The constructor exposes a few advanced knobs (`proxy`, `normalize_input`, `max_input_length`). These are rarely needed for typical usage and can be ignored. Prefer `detect(..., model=...)` unless you know you need them.
 
 ### Language Codes → English Names
 
@@ -209,8 +244,8 @@ def code_to_english_name(code: str) -> str:
 
 # Usage
 from fast_langdetect import detect
-result = detect("Olá mundo", low_memory=False)
-print(code_to_english_name(result["lang"]))  # Portuguese (Brazil) or Portuguese
+result = detect("Olá mundo", model='full', k=1)
+print(code_to_english_name(result[0]["lang"]))  # Portuguese (Brazil) or Portuguese
 ```
 
 Alternatively, `pycountry` can be used for ISO 639 lookups (install with `pip install pycountry`), combined with a small override dict for non-standard tags like `pt-br`, `zh-cn`, `yue`, etc.

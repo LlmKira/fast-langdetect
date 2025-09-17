@@ -28,13 +28,12 @@ def test_model_loading_with_chinese_path():
         # 正确使用自定义模型路径
         config = LangDetectConfig(
             custom_model_path=str(chinese_model_path),
-            allow_fallback=False
-            )
+        )
         detector = LangDetector(config)
-        result = detector.detect("This is a test")
+        result = detector.detect("This is a test", model="auto", k=1)
         
-        assert "lang" in result
-        assert "score" in result
+        assert "lang" in result[0]
+        assert "score" in result[0]
     finally:
         # 清理
         shutil.rmtree(temp_dir, ignore_errors=True) 

@@ -1,6 +1,6 @@
 from lingua import LanguageDetectorBuilder
 
-from fast_langdetect import detect_language, detect_multilingual
+from fast_langdetect import detect_language, detect
 
 low_mem_detector = (LanguageDetectorBuilder
                     .from_all_languages()
@@ -47,7 +47,7 @@ Hallo Welt
 這些機構主辦的課程，多以基本電腦使用為主，例如文書處理、中文輸入、互聯網應用等
 Bonjour le monde
 """
-langs = detect_multilingual(sentence.replace("\n", " "), low_memory=False)
+langs = detect(sentence.replace("\n", " "), model="full", k=5)
 for lang in langs:
     print(lang)
 confidence_values = detector.compute_language_confidence_values(sentence)
