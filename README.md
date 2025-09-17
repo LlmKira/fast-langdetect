@@ -72,7 +72,7 @@ print(detect("Hello 世界 こんにちは", model="auto", k=3))
 
 `detect` always returns a list of candidates ordered by score. Use `model="full"` for the best accuracy or `model="lite"` for an offline-only workflow.
 
-### Reuse Configuration
+### Custom Configuration
 
 ```python
 from fast_langdetect import LangDetectConfig, LangDetector
@@ -83,7 +83,9 @@ print(detector.detect("Bonjour", k=1))
 print(detector.detect("Hola", model="full", k=1))
 ```
 
-Instantiate `LangDetector` when you want to reuse a model or share configuration between calls without re-downloading files.
+Each `LangDetector` instance maintains its own in-memory model cache. Once loaded, models are reused for subsequent calls within the same instance. The global `detect()` function uses a shared default detector, so it also benefits from automatic caching.
+
+Create a custom `LangDetector` instance when you need specific configuration (custom cache directory, input limits, etc.) or isolated model management.
 
 #### 🌵 Fallback Policy 
 
@@ -229,8 +231,10 @@ from fast_langdetect import LangDetectConfig, LangDetector
 with resources.path("fast_langdetect.resources", "lid.176.ftz") as model_path:
     config = LangDetectConfig(custom_model_path=str(model_path))
     detector = LangDetector(config)
-    print(detector.detect("Hello world", model="lite", k=1))
+    print(detector.detect("Hello world", k=1))
 ```
+
+When using a custom model via `custom_model_path`, the `model` parameter in `detect()` calls is ignored since your custom model file is always loaded directly. The `model="lite"`, `model="full"`, and `model="auto"` parameters only apply when using the built-in models.
 
 ## Benchmark 📊
 
