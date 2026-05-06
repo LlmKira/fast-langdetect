@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.1] - 2026-05-06
+
+- Packaging: Declare Python 3.14 support and publish package metadata classifiers for Python 3.9 through 3.14.
+- CI: Add Python 3.14 to the test matrix.
+
 ## [0.4.0] - 2025-09-15
 
 - Behavior: Always replace newline characters in input to prevent FastText errors. This adjustment is logged at DEBUG level only.
