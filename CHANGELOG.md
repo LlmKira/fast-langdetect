@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-05-06
+
+- Reliability: Make full-model cache downloads single-writer, checksum-verified, and atomically published to prevent corrupted shared cache files during concurrent first use.
+
 ## [1.0.1] - 2026-05-06
 
 - Packaging: Declare Python 3.14 support and publish package metadata classifiers for Python 3.9 through 3.14.

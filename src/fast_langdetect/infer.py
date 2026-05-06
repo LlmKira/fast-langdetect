@@ -3,12 +3,15 @@
 FastText based language detection module.
 """
 
+import hashlib
 import logging
 import os
 import platform
 import re
 import shutil
 import tempfile
+import time
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Literal
 
@@ -24,7 +27,10 @@ FASTTEXT_LARGE_MODEL_URL = (
     "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 )
 FASTTEXT_LARGE_MODEL_NAME = "lid.176.bin"
+FASTTEXT_LARGE_MODEL_MD5 = "01810bc59c6a3d2b79c79e6336612f65"
 _LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
+_MODEL_DOWNLOAD_LOCK_TIMEOUT_SECONDS = 600.0
+_MODEL_DOWNLOAD_LOCK_POLL_SECONDS = 0.1
 
 
 class FastLangdetectError(Exception):
@@ -41,51 +47,141 @@ class ModelDownloader:
     """Model download handler."""
 
     @staticmethod
-    def download(url: str, save_path: Path, proxy: Optional[str] = None) -> None:
+    def _file_md5(path: Path) -> str:
+        hasher = hashlib.md5()
+        with path.open("rb") as file:
+            for chunk in iter(lambda: file.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
+    @classmethod
+    def _is_valid_model(cls, path: Path, expected_md5: Optional[str]) -> bool:
+        if not path.exists():
+            return False
+        if expected_md5 is None:
+            return True
+        try:
+            return cls._file_md5(path) == expected_md5
+        except OSError:
+            return False
+
+    @staticmethod
+    def _acquire_lock(
+        lock_path: Path,
+        timeout: float = _MODEL_DOWNLOAD_LOCK_TIMEOUT_SECONDS,
+    ) -> None:
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                lock_path.mkdir()
+                return
+            except FileExistsError:
+                if time.monotonic() >= deadline:
+                    raise FastLangdetectError(
+                        f"fast-langdetect: Timed out waiting for model cache lock: {lock_path}"
+                    )
+                time.sleep(_MODEL_DOWNLOAD_LOCK_POLL_SECONDS)
+
+    @staticmethod
+    def _release_lock(lock_path: Path) -> None:
+        try:
+            lock_path.rmdir()
+        except FileNotFoundError:
+            return
+        except OSError as e:
+            logger.warning(
+                f"fast-langdetect: Failed to release model cache lock {lock_path}: {e}"
+            )
+
+    @staticmethod
+    def _ensure_parent_dir(save_path: Path) -> None:
+        parent_dir = save_path.parent
+        default_cache_dir = Path(CACHE_DIRECTORY)
+        if parent_dir.exists():
+            return
+
+        # Only auto-create when using the library's default cache dir.
+        if parent_dir == default_cache_dir:
+            try:
+                parent_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                raise FastLangdetectError(
+                    f"fast-langdetect: Cannot create cache directory {parent_dir}: {e}"
+                ) from e
+            return
+
+        # For user-specified cache_dir, do not fallback; raise.
+        raise FileNotFoundError(f"fast-langdetect: Cache directory not found: {parent_dir}")
+
+    @classmethod
+    def download(
+        cls,
+        url: str,
+        save_path: Path,
+        proxy: Optional[str] = None,
+        expected_md5: Optional[str] = None,
+        lock_timeout: float = _MODEL_DOWNLOAD_LOCK_TIMEOUT_SECONDS,
+    ) -> None:
         """
         Download model file if not exists.
 
         :param url: URL to download from
         :param save_path: Path to save the model
         :param proxy: Optional proxy URL
+        :param expected_md5: Optional expected MD5 checksum for the completed file
+        :param lock_timeout: Seconds to wait for another process downloading this model
 
         :raises:
             FastLangdetectError: If download fails
             FileNotFoundError: If a user-provided cache directory does not exist
         """
-        if save_path.exists():
+        if cls._is_valid_model(save_path, expected_md5):
             logger.info(f"fast-langdetect: Model exists at {save_path}")
             return
 
-        logger.info(f"fast-langdetect: Downloading model from {url}")
-        # Ensure target directory handling is consistent across OSes
-        parent_dir = save_path.parent
-        default_cache_dir = Path(CACHE_DIRECTORY)
-        if not parent_dir.exists():
-            # Only auto-create when using the library's default cache dir
-            if parent_dir == default_cache_dir:
-                try:
-                    parent_dir.mkdir(parents=True, exist_ok=True)
-                except Exception as e:
-                    raise FastLangdetectError(
-                        f"fast-langdetect: Cannot create cache directory {parent_dir}: {e}"
-                    ) from e
-            else:
-                # For user-specified cache_dir, do not fallback; raise
-                raise FileNotFoundError(f"fast-langdetect: Cache directory not found: {parent_dir}")
+        cls._ensure_parent_dir(save_path)
+        lock_path = save_path.with_name(f"{save_path.name}.lock")
+        tmp_path = save_path.with_name(
+            f"{save_path.name}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        )
+
+        cls._acquire_lock(lock_path, timeout=lock_timeout)
         try:
+            if cls._is_valid_model(save_path, expected_md5):
+                logger.info(f"fast-langdetect: Model exists at {save_path}")
+                return
+
+            if save_path.exists():
+                logger.warning(f"fast-langdetect: Removing invalid cached model at {save_path}")
+                save_path.unlink()
+
+            logger.info(f"fast-langdetect: Downloading model from {url}")
             download(
                 url=url,
-                folder=str(save_path.parent),
-                filename=save_path.name,
+                folder=str(tmp_path.parent),
+                filename=tmp_path.name,
                 proxy=proxy,
                 retry_max=2,
                 sleep_max=5,
                 timeout=7,
             )
+            if not cls._is_valid_model(tmp_path, expected_md5):
+                raise FastLangdetectError(
+                    f"fast-langdetect: Downloaded model failed integrity check: {tmp_path}"
+                )
+            os.replace(tmp_path, save_path)
         except Exception as e:
             # Download failures are library-specific
             raise FastLangdetectError(f"fast-langdetect: Download failed: {e}") from e
+        finally:
+            if tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError as e:
+                    logger.warning(
+                        f"fast-langdetect: Failed to delete temporary model file {tmp_path}: {e}"
+                    )
+            cls._release_lock(lock_path)
 
 
 class ModelLoader:
@@ -106,8 +202,13 @@ class ModelLoader:
 
     def load_with_download(self, model_path: Path, proxy: Optional[str] = None) -> Any:
         """Internal method to load model with download if needed."""
-        if not model_path.exists():
-            self._downloader.download(FASTTEXT_LARGE_MODEL_URL, model_path, proxy)
+        if not self._downloader._is_valid_model(model_path, FASTTEXT_LARGE_MODEL_MD5):
+            self._downloader.download(
+                FASTTEXT_LARGE_MODEL_URL,
+                model_path,
+                proxy,
+                expected_md5=FASTTEXT_LARGE_MODEL_MD5,
+            )
         return self.load_local(model_path)
 
     def _load_windows_compatible(self, model_path: Path) -> Any:
@@ -212,7 +313,7 @@ class LangDetectConfig:
 
 class LangDetector:
     """Language detector using FastText models."""
-    VERIFY_FASTTEXT_LARGE_MODEL = "01810bc59c6a3d2b79c79e6336612f65"
+    VERIFY_FASTTEXT_LARGE_MODEL = FASTTEXT_LARGE_MODEL_MD5
 
     def __init__(self, config: Optional[LangDetectConfig] = None):
         """
