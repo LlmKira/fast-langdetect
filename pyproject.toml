@@ -1,6 +1,6 @@
 [project]
 name = "fast-langdetect"
-version = "1.0.1"
+version = "1.0.2"
 description = "Quickly detect text language and segment language"
 authors = [
     { name = "sudoskys", email = "coldlando@hotmail.com" },
