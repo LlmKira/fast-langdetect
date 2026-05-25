@@ -16,6 +16,12 @@ import fasttext
 from robust_downloader import download
 
 logger = logging.getLogger(__name__)
+_FASTTEXT_CONFLICT_MESSAGE = (
+    "fast-langdetect: Detected the deprecated `fasttext` PyPI package. "
+    "`fast-langdetect` depends on `fasttext-predict`, which provides a "
+    "predict-only `fasttext` module without NumPy. Uninstall `fasttext` and "
+    "reinstall `fasttext-predict` to restore the supported backend."
+)
 
 # Use system temporary directory as default cache directory
 DEFAULT_CACHE_DIR = Path(tempfile.gettempdir()) / "fasttext-langdetect"
@@ -94,12 +100,18 @@ class ModelLoader:
     def __init__(self):
         self._downloader = ModelDownloader()
 
+    @staticmethod
+    def _validate_fasttext_backend() -> None:
+        if hasattr(fasttext, "train_supervised") or hasattr(fasttext, "train_unsupervised"):
+            raise ModelLoadError(_FASTTEXT_CONFLICT_MESSAGE)
+
     def load_local(self, model_path: Path) -> Any:
         """Load model from local file."""
         if not model_path.exists():
             # Missing path is a standard I/O error
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
+        self._validate_fasttext_backend()
         if platform.system() == "Windows":
             return self._load_windows_compatible(model_path)
         return self._load_unix(model_path)

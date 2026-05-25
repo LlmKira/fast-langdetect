@@ -50,6 +50,19 @@ pip install fast-langdetect
 pdm add fast-langdetect
 ```
 
+### FastText Dependency Note
+
+`fast-langdetect` uses `fasttext-predict`, which provides the `fasttext` import
+without requiring NumPy. Do not install the deprecated `fasttext` PyPI package in
+the same environment; it can overwrite the shared `fasttext` module and break
+prediction. If that happens, remove the conflicting package and reinstall the
+supported backend:
+
+```bash
+pip uninstall fasttext fasttext-predict
+pip install fasttext-predict
+```
+
 ## Usage 🖥️
 
 For higher accuracy, prefer the full model via `detect(text, model='full')`. For robust behavior under memory pressure, use `detect(text, model='auto')` which falls back to the lite model only on MemoryError.
