@@ -13,9 +13,67 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Literal
 
 import fasttext
+import numpy as np
 from robust_downloader import download
 
 logger = logging.getLogger(__name__)
+
+
+def _patch_fasttext_for_numpy2() -> bool:
+    """Patch ``fasttext._FastText.predict`` if the deprecated dist is present.
+
+    ``fast-langdetect`` depends on ``fasttext-predict``, a maintained fork of
+    the original ``fasttext`` PyPI package. Both distributions install files
+    into the same top-level ``fasttext/`` package directory; because the
+    *distribution* names differ, pip lets whichever is installed last silently
+    overwrite the other's files. When the deprecated ``fasttext`` wins on
+    disk, its ``_FastText.predict`` ends with ``np.array(probs, copy=False)``,
+    which raises under NumPy >= 2.0 and breaks every ``detect()`` call.
+
+    Replace just that one method with a NumPy-2-safe equivalent calling the
+    same underlying C++ binding (``self.f.predict``). No-op when only
+    ``fasttext-predict`` is installed.
+
+    :return: True if the patch was applied, False otherwise.
+    """
+    import importlib.metadata
+
+    try:
+        importlib.metadata.distribution("fasttext")
+    except importlib.metadata.PackageNotFoundError:
+        return False
+
+    import fasttext.FastText as _ft_module
+
+    cls = _ft_module._FastText
+
+    def _safe_predict(self, text, k=1, threshold=0.0, on_unicode_error="strict"):
+        def _check(entry):
+            if "\n" in entry:
+                raise ValueError(
+                    "predict processes one line at a time (remove '\\n')"
+                )
+            return entry + "\n"
+
+        if isinstance(text, list):
+            return self.f.multilinePredict(
+                [_check(e) for e in text], k, threshold, on_unicode_error
+            )
+        predictions = self.f.predict(_check(text), k, threshold, on_unicode_error)
+        probs, labels = (zip(*predictions) if predictions else ([], ()))
+        return labels, np.asarray(probs)
+
+    cls.predict = _safe_predict
+    logger.warning(
+        "fast-langdetect: Detected the deprecated `fasttext` PyPI package "
+        "installed alongside `fast-langdetect` (which requires "
+        "`fasttext-predict`). Patched `fasttext._FastText.predict` for "
+        "NumPy 2.x compatibility."
+    )
+    return True
+
+
+_patch_fasttext_for_numpy2()
 
 # Use system temporary directory as default cache directory
 DEFAULT_CACHE_DIR = Path(tempfile.gettempdir()) / "fasttext-langdetect"
