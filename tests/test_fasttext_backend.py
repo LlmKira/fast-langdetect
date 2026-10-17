@@ -1,3 +1,6 @@
+import sys
+import types
+
 import pytest
 
 from fast_langdetect.infer import ModelLoadError, ModelLoader
@@ -10,7 +13,7 @@ class _DeprecatedFastText:
 
     @staticmethod
     def load_model(path):
-        raise AssertionError("legacy fasttext backend should fail before load_model")
+        return {"path": path}
 
 
 class _PredictOnlyFastText:
@@ -19,19 +22,35 @@ class _PredictOnlyFastText:
         return {"path": path}
 
 
-def test_loader_rejects_deprecated_fasttext_backend(monkeypatch, tmp_path):
-    model_path = tmp_path / "lid.176.ftz"
-    model_path.write_bytes(b"model")
+@pytest.fixture
+def model_path(monkeypatch, tmp_path):
+    monkeypatch.setattr("fast_langdetect.infer.platform.system", lambda: "Linux")
+    path = tmp_path / "lid.176.ftz"
+    path.write_bytes(b"model")
+    return path
+
+
+def _use_numpy(monkeypatch, version):
+    monkeypatch.setitem(sys.modules, "numpy", types.SimpleNamespace(__version__=version))
+
+
+def test_loader_rejects_deprecated_fasttext_under_numpy2(monkeypatch, model_path):
     monkeypatch.setattr("fast_langdetect.infer.fasttext", _DeprecatedFastText)
+    _use_numpy(monkeypatch, "2.1.3")
 
     with pytest.raises(ModelLoadError, match="deprecated `fasttext` PyPI package"):
         ModelLoader().load_local(model_path)
 
 
-def test_loader_accepts_predict_only_fasttext_backend(monkeypatch, tmp_path):
-    model_path = tmp_path / "lid.176.ftz"
-    model_path.write_bytes(b"model")
+def test_loader_accepts_deprecated_fasttext_under_numpy1(monkeypatch, model_path):
+    monkeypatch.setattr("fast_langdetect.infer.fasttext", _DeprecatedFastText)
+    _use_numpy(monkeypatch, "1.26.4")
+
+    assert ModelLoader().load_local(model_path) == {"path": str(model_path)}
+
+
+def test_loader_accepts_predict_only_fasttext_backend(monkeypatch, model_path):
     monkeypatch.setattr("fast_langdetect.infer.fasttext", _PredictOnlyFastText)
-    monkeypatch.setattr("fast_langdetect.infer.platform.system", lambda: "Linux")
+    _use_numpy(monkeypatch, "2.1.3")
 
     assert ModelLoader().load_local(model_path) == {"path": str(model_path)}

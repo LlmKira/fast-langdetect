@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Literal
@@ -16,11 +17,11 @@ import fasttext
 from robust_downloader import download
 
 logger = logging.getLogger(__name__)
+_FASTTEXT_BACKEND = "fasttext-predict-v2" if sys.version_info >= (3, 14) else "fasttext-predict"
 _FASTTEXT_CONFLICT_MESSAGE = (
-    "fast-langdetect: Detected the deprecated `fasttext` PyPI package. "
-    "`fast-langdetect` depends on `fasttext-predict`, which provides a "
-    "predict-only `fasttext` module without NumPy. Uninstall `fasttext` and "
-    "reinstall `fasttext-predict` to restore the supported backend."
+    "fast-langdetect: The `fasttext` module comes from the deprecated `fasttext` PyPI package, "
+    "whose predict() fails under NumPy 2. Run `pip uninstall -y fasttext` and then "
+    f"`pip install --force-reinstall --no-deps {_FASTTEXT_BACKEND}` to restore the supported backend."
 )
 
 # Use system temporary directory as default cache directory
@@ -102,7 +103,12 @@ class ModelLoader:
 
     @staticmethod
     def _validate_fasttext_backend() -> None:
-        if hasattr(fasttext, "train_supervised") or hasattr(fasttext, "train_unsupervised"):
+        # The deprecated `fasttext` package overwrites the predict-only module (both install
+        # into `fasttext/`). It still works with NumPy 1, so only reject it under NumPy 2 (#31).
+        if not hasattr(fasttext, "train_supervised"):
+            return
+        numpy = sys.modules.get("numpy")
+        if numpy is not None and int(numpy.__version__.split(".")[0]) >= 2:
             raise ModelLoadError(_FASTTEXT_CONFLICT_MESSAGE)
 
     def load_local(self, model_path: Path) -> Any:
