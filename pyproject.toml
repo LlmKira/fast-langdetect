@@ -7,8 +7,10 @@ authors = [
 ]
 dependencies = [
     "robust-downloader>=0.0.2",
-    "requests>=2.32.3",
-    "fasttext-predict>=0.9.2.4",
+    "fasttext-predict>=0.9.2.4; python_version < '3.14'",
+    # fasttext-predict has no 3.14 wheels and its repository is gone (#34).
+    # Exact pin: this fork has a single maintainer, so review each release before bumping.
+    "fasttext-predict-v2==1.1.0; python_version >= '3.14'",
 ]
 requires-python = ">=3.9"
 readme = "README.md"
