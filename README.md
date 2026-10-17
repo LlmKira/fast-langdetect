@@ -50,9 +50,20 @@ pip install fast-langdetect
 pdm add fast-langdetect
 ```
 
+### FastText Dependency Note
+
 The `fasttext` module comes from [fasttext-predict](https://pypi.org/project/fasttext-predict/) on Python 3.9–3.13
 and from [fasttext-predict-v2](https://pypi.org/project/fasttext-predict-v2/) on Python 3.14+, which ships 3.14 wheels.
 Free-threaded builds (3.14t) have no wheels and need a C++ compiler to install.
+
+The deprecated `fasttext` PyPI package installs into the same `fasttext/` directory and can overwrite it.
+Its `predict()` fails under NumPy 2, so in that case `detect()` raises `ModelLoadError`. To repair it
+(use `fasttext-predict-v2` on Python 3.14+):
+
+```bash
+pip uninstall -y fasttext
+pip install --force-reinstall --no-deps fasttext-predict
+```
 
 ## Usage 🖥️
 

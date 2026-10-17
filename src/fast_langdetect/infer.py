@@ -8,6 +8,7 @@ import os
 import platform
 import re
 import shutil
+import sys
 import tempfile
 import warnings
 from pathlib import Path
@@ -17,6 +18,12 @@ import fasttext
 from robust_downloader import download
 
 logger = logging.getLogger(__name__)
+_FASTTEXT_BACKEND = "fasttext-predict-v2" if sys.version_info >= (3, 14) else "fasttext-predict"
+_FASTTEXT_CONFLICT_MESSAGE = (
+    "fast-langdetect: The `fasttext` module comes from the deprecated `fasttext` PyPI package, "
+    "whose predict() fails under NumPy 2. Run `pip uninstall -y fasttext` and then "
+    f"`pip install --force-reinstall --no-deps {_FASTTEXT_BACKEND}` to restore the supported backend."
+)
 
 # Use system temporary directory as default cache directory
 DEFAULT_CACHE_DIR = Path(tempfile.gettempdir()) / "fasttext-langdetect"
@@ -95,12 +102,23 @@ class ModelLoader:
     def __init__(self):
         self._downloader = ModelDownloader()
 
+    @staticmethod
+    def _validate_fasttext_backend() -> None:
+        # The deprecated `fasttext` package overwrites the predict-only module (both install
+        # into `fasttext/`). It still works with NumPy 1, so only reject it under NumPy 2 (#31).
+        if not hasattr(fasttext, "train_supervised"):
+            return
+        numpy = sys.modules.get("numpy")
+        if numpy is not None and int(numpy.__version__.split(".")[0]) >= 2:
+            raise ModelLoadError(_FASTTEXT_CONFLICT_MESSAGE)
+
     def load_local(self, model_path: Path) -> Any:
         """Load model from local file."""
         if not model_path.exists():
             # Missing path is a standard I/O error
             raise FileNotFoundError(f"Model file not found: {model_path}")
 
+        self._validate_fasttext_backend()
         if platform.system() == "Windows":
             return self._load_windows_compatible(model_path)
         return self._load_unix(model_path)
