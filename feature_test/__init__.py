@@ -34,7 +34,6 @@ try:
             "Hello, world!你好世界!Привет, мир!",
             model="full",
             k=5,
-            config=LangDetectConfig(),
         )
     )
 except Exception as e:

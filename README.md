@@ -89,7 +89,7 @@ print(detector.detect("Hola", model="full", k=1))
 
 Each `LangDetector` instance maintains its own in-memory model cache. Once loaded, models are reused for subsequent calls within the same instance. The global `detect()` function uses a shared default detector, so it also benefits from automatic caching.
 
-Create a custom `LangDetector` instance when you need specific configuration (custom cache directory, input limits, etc.) or isolated model management.
+Create a custom `LangDetector` instance when you need specific configuration (custom cache directory, input limits, etc.) or isolated model management. Create it once and reuse it: `detect(text, config=...)` builds a new detector and reloads the model on every call, so it is deprecated and will be removed in 2.0.
 
 #### 🌵 Fallback Policy 
 
