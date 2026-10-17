@@ -4,8 +4,8 @@
 [metadata]
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
-lock_version = "4.5.0"
-content_hash = "sha256:458ea4588e153e9471b5a168654371e729a75b77eda9b33e681c293fd689c2ce"
+lock_version = "4.5.1"
+content_hash = "sha256:a72ff1663500638eafcfdfa5fa3b127b2145299b510c01590c531198d87f7f77"
 
 [[metadata.targets]]
 requires_python = ">=3.9"
@@ -140,6 +140,7 @@ name = "fasttext-predict"
 version = "0.9.2.4"
 summary = "fasttext with wheels and no external dependency, but only the predict method (<1MB)"
 groups = ["default"]
+marker = "python_version < \"3.14\""
 files = [
     {file = "fasttext_predict-0.9.2.4-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:ba432f33228928df5f2af6dfa50560cd77f9859914cffd652303fb02ba100456"},
     {file = "fasttext_predict-0.9.2.4-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:6a8e8f17eb894d450168d2590e23d809e845bd4fad5e39b5708dacb2fdb9b2c7"},
@@ -218,6 +219,53 @@ files = [
     {file = "fasttext_predict-0.9.2.4-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5f3b9cd4a2cf4c4853323f57c5da6ecffca6aeb9b6d8751ee40fe611d6edf8dd"},
     {file = "fasttext_predict-0.9.2.4-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:1c92905396c74e5cb29ddbfa763b5addec1581b6e0eae4cbe82248dfe733557e"},
     {file = "fasttext_predict-0.9.2.4.tar.gz", hash = "sha256:18a6fb0d74c7df9280db1f96cb75d990bfd004fa9d669493ea3dd3d54f84dbc7"},
+]
+
+[[package]]
+name = "fasttext-predict-v2"
+version = "1.1.0"
+requires_python = ">=3.11"
+summary = "fasttext with wheels and no external dependency, but only the predict method (<1MB)"
+groups = ["default"]
+marker = "python_version >= \"3.14\""
+files = [
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-macosx_10_13_x86_64.whl", hash = "sha256:c3ff1df3b92d5242142b8f3fba18667bf29d9967b8b6ac66d9662f0f7a83d684"},
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:ac663d3ef66c2229bfd00369c00cf9749d0a811190e32ebdfad7e7254c3b39f6"},
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:3a0551545860875dccbdbe65c7a3fcade1f91536bedb4377f757ade3b70a8e24"},
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9d10df6c5abbf6de6e961454bdc572c8e406fbe2c278d28748c00bfaab2f0f4c"},
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:ce7890f4c2f898095aa3a06a5e0463e5592c12749a5dd710b1a2e42ee05fea70"},
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:32904d05d3922f5903b367c30d64d159f968b1942d824cb4c728f2019ec5d85f"},
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-win32.whl", hash = "sha256:f2e39573905de040b05e043db2c0481b8a5d4cff1a2a7ecb4e098ff73e401027"},
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-win_amd64.whl", hash = "sha256:56e1a040d34152ba09127820c2e9ee5b621522bcd4ea67986037c0d25ade2d2d"},
+    {file = "fasttext_predict_v2-1.1.0-cp311-cp311-win_arm64.whl", hash = "sha256:d5c3421da7c39118d6984a20110870ff9f06f2a89af6468927e7634dc15ce373"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:475bdacaf5e2c09331b46f08acc64253976d05c53c21fb22f73144f93b868009"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:fb5d3f3e71bae93544628854f909127b14c0bc4d008930855aa62d00409d856c"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:eb45e2772f624dadcfc8af9689d9ccc53ccb386608bf87291fe60413f10d51d5"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c77332bf9a3be9b28fe0e3ab07e180defcfc92d6f94ff820d9ee6ee57ce0389f"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:8e36eedddb5085099e182deb59219673977135a027b09e98abf1612571ee08b1"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:484d56d59575af82a85cf3ddeee233e57532d1902e9039dff2b5636491e078af"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-win32.whl", hash = "sha256:8d0b52b0d0618b0f878892d3cd72054fbd64d3fc6ef6fb3c46d9caff529e6ff1"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-win_amd64.whl", hash = "sha256:b8f351ad3c598db5d89be314aeb8e6c93e1ee22977abe090f72b2c8e955d6b8c"},
+    {file = "fasttext_predict_v2-1.1.0-cp312-cp312-win_arm64.whl", hash = "sha256:4364323d365c68021ad6bbcf802dafa93294438d95b68bc62041f9d5e36ba39f"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:e91465384cd8bd43f65f90796c0491419963b3f4889566190438466d2d8ab074"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:db4ce40e09b223c5cf7fb9a9652269516c7265aa4f9829c5aff39b89d6725849"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:041c08c2779b8e211214d399845f23c6579c859609d421083583cad01348efb0"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:898cc788dc403ce998298866ed43099e6736141baaba6403f5f6b5372315e37e"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:60c8ef3920ce40966671cef4006cadf53803116b6cd8b158501f7b9bd4992f8c"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:240c10eae39880263d54348e2634ecfcf952731e208548ec7ed49ff75ba848cf"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-win32.whl", hash = "sha256:aa83c27ac3b9e75d12fff2d4c4742aa0d3678a076cef9cc15ed1dff6e26465cd"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:5a4e4ad2dfac81ac74e1fbee758daf74f2df6b8ca528cbb6d93413da5f5808b8"},
+    {file = "fasttext_predict_v2-1.1.0-cp313-cp313-win_arm64.whl", hash = "sha256:63662493031e03e308c78d3558179797dd62e9613ed0ef0196c228464d9c9278"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:d7d3d86465d9d2f0c35e8e76ee469953c47a3ad90428e0b29ffe71e90eacf0e5"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:b05d27a261034aaa6f8b9dfc5c81b61763fa50c95030ea1008011fae1a8ae32f"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9de01e6ca796f9a94bf10394871cca253a86a49aca55f1df696d7365f3c03d9e"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:212ad9f38ba202a404237b6c5cf34eaa8522d66b292fe1251bbb5f81cdb2b09c"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:a7607b4d374be491b7a3d17b0db0122f0ecf9678430b9c0e6972c9a96e40a47c"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:1866368740c5d2e624bf0113f6d5325fea8b17f50cf247aec1444b86602906c4"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-win32.whl", hash = "sha256:569cdc710b7fa0ac7135fec6fe23d5f2c3c3a7909aeef80717c3c9d208c1aea5"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-win_amd64.whl", hash = "sha256:9c269045309c4e1f93b7ba249ff6d811af8162b4a3563e7e0d18c20e0257bb9d"},
+    {file = "fasttext_predict_v2-1.1.0-cp314-cp314-win_arm64.whl", hash = "sha256:46385eda96b436fa570d7c15d5f13591fb35c65ec0ccf30d79f4155dc71e9219"},
+    {file = "fasttext_predict_v2-1.1.0.tar.gz", hash = "sha256:d4b8abb6e0cf8250821b5af4e1c6ba74482fc221ce88388f95b0dd17ddb75985"},
 ]
 
 [[package]]
