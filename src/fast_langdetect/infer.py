@@ -12,6 +12,7 @@ import shutil
 import tempfile
 import time
 import uuid
+import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Literal
 
@@ -235,10 +236,12 @@ class ModelLoader:
         Handle Windows path compatibility issues when loading FastText models.
         
         Attempts multiple strategies in order:
-        1. Direct loading if path contains only safe characters
+        1. Direct loading
         2. Loading via relative path if possible
         3. Copying to temporary file as last resort
-        
+
+        MemoryError is never retried or wrapped, so model='auto' can fall back to the lite model.
+
         :param model_path: Path to the model file
         :return: Loaded FastText model
         :raises ModelLoadError: If all loading strategies fail
@@ -248,6 +251,8 @@ class ModelLoader:
         # Try to load model directly
         try:
             return fasttext.load_model(model_path_str)
+        except MemoryError:
+            raise
         except Exception as e:
             logger.debug(f"fast-langdetect: Load model failed: {e}")
 
@@ -256,6 +261,8 @@ class ModelLoader:
             cwd = Path.cwd()
             rel_path = os.path.relpath(model_path, cwd)
             return fasttext.load_model(rel_path)
+        except MemoryError:
+            raise
         except Exception as e:
             logger.debug(f"fast-langdetect: Failed to load model using relative path: {e}")
 
@@ -270,6 +277,8 @@ class ModelLoader:
             # Copy model file to temporary location
             shutil.copy2(model_path, tmp_path)
             return fasttext.load_model(tmp_path)
+        except MemoryError:
+            raise
         except Exception as e:
             raise ModelLoadError(f"Failed to load model using temporary file: {e}") from e
         finally:
@@ -306,7 +315,7 @@ class LangDetectConfig:
     :param custom_model_path: Path to custom model file (if using own model)
     :param proxy: HTTP proxy for downloads
     :param normalize_input: Whether to normalize input text (e.g. lowercase for uppercase text)
-    :param max_input_length: If set, truncate input to this many characters (always debug-log the change)
+    :param max_input_length: If set, truncate input to this many characters (logged at INFO level)
     :param model: Default model selection ('auto' | 'full' | 'lite') used when detect() is called without a model
     """
 
@@ -369,7 +378,6 @@ class LangDetector:
         Normalize text based on configuration.
         
         Currently, handles:
-        - Removing newline characters for better prediction
         - Lowercasing uppercase text to prevent misdetection as Japanese
         
         :param text: Input text
@@ -483,5 +491,13 @@ def detect(
     threshold: float = 0.0,
     config: Optional[LangDetectConfig] = None,
 ) -> List[Dict[str, Union[str, float]]]:
-    detector = LangDetector(config) if config is not None else _default_detector
-    return detector.detect(text, model=model, k=k, threshold=threshold)
+    if config is None:
+        return _default_detector.detect(text, model=model, k=k, threshold=threshold)
+    warnings.warn(
+        "fast-langdetect: detect(config=...) reloads the model on every call. "
+        "Create LangDetector(config) once and call its detect() method instead; "
+        "the config parameter will be removed in 2.0.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return LangDetector(config).detect(text, model=model, k=k, threshold=threshold)

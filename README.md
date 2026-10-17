@@ -89,7 +89,7 @@ print(detector.detect("Hola", model="full", k=1))
 
 Each `LangDetector` instance maintains its own in-memory model cache. Once loaded, models are reused for subsequent calls within the same instance. The global `detect()` function uses a shared default detector, so it also benefits from automatic caching.
 
-Create a custom `LangDetector` instance when you need specific configuration (custom cache directory, input limits, etc.) or isolated model management.
+Create a custom `LangDetector` instance when you need specific configuration (custom cache directory, input limits, etc.) or isolated model management. Create it once and reuse it: `detect(text, config=...)` builds a new detector and reloads the model on every call, so it is deprecated and will be removed in 2.0.
 
 #### 🌵 Fallback Policy 
 
@@ -113,7 +113,7 @@ repository.
 
 ### Input Handling
 
-You can control log verbosity and input normalization via `LangDetectConfig`:
+You can control input truncation and normalization via `LangDetectConfig`:
 
 ```python
 from fast_langdetect import LangDetectConfig, LangDetector
@@ -124,8 +124,9 @@ print(detector.detect("Some very long text..." * 5))
 ```
 
 - Newlines are always replaced with spaces to avoid FastText errors (silent, no log).
-- When truncation happens, a WARNING is logged because it may reduce accuracy.
+- When truncation happens, an INFO message is logged because it may reduce accuracy.
 - The default `max_input_length` is 80 characters (optimal for accuracy); increase it if you need longer samples, or set `None` to disable truncation entirely.
+- The limit counts characters regardless of language: 80 characters is a full sentence in Chinese or Japanese but only a short one in English. If you need a per-language sampling policy, set `max_input_length=None` and pass the sample you want to classify.
 
 ### Cache Directory Behavior
 
