@@ -109,7 +109,7 @@ repository.
 
 ### Input Handling
 
-You can control log verbosity and input normalization via `LangDetectConfig`:
+You can control input truncation and normalization via `LangDetectConfig`:
 
 ```python
 from fast_langdetect import LangDetectConfig, LangDetector
@@ -120,8 +120,9 @@ print(detector.detect("Some very long text..." * 5))
 ```
 
 - Newlines are always replaced with spaces to avoid FastText errors (silent, no log).
-- When truncation happens, a WARNING is logged because it may reduce accuracy.
+- When truncation happens, an INFO message is logged because it may reduce accuracy.
 - The default `max_input_length` is 80 characters (optimal for accuracy); increase it if you need longer samples, or set `None` to disable truncation entirely.
+- The limit counts characters regardless of language: 80 characters is a full sentence in Chinese or Japanese but only a short one in English. If you need a per-language sampling policy, set `max_input_length=None` and pass the sample you want to classify.
 
 ### Cache Directory Behavior
 

@@ -186,7 +186,7 @@ class LangDetectConfig:
     :param custom_model_path: Path to custom model file (if using own model)
     :param proxy: HTTP proxy for downloads
     :param normalize_input: Whether to normalize input text (e.g. lowercase for uppercase text)
-    :param max_input_length: If set, truncate input to this many characters (always debug-log the change)
+    :param max_input_length: If set, truncate input to this many characters (logged at INFO level)
     :param model: Default model selection ('auto' | 'full' | 'lite') used when detect() is called without a model
     """
 
@@ -249,7 +249,6 @@ class LangDetector:
         Normalize text based on configuration.
         
         Currently, handles:
-        - Removing newline characters for better prediction
         - Lowercasing uppercase text to prevent misdetection as Japanese
         
         :param text: Input text
