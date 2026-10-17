@@ -1,3 +1,5 @@
+import hashlib
+
 import pytest
 
 import fast_langdetect.infer as infer
@@ -5,7 +7,10 @@ from fast_langdetect import LangDetectConfig, LangDetector, detect
 
 
 def test_auto_falls_back_to_lite_on_windows_memory_error(monkeypatch, tmp_path):
-    (tmp_path / infer.FASTTEXT_LARGE_MODEL_NAME).write_bytes(b"full model placeholder")
+    placeholder = b"full model placeholder"
+    (tmp_path / infer.FASTTEXT_LARGE_MODEL_NAME).write_bytes(placeholder)
+    # Make the cached placeholder pass the checksum so no download is attempted.
+    monkeypatch.setattr(infer, "FASTTEXT_LARGE_MODEL_MD5", hashlib.md5(placeholder).hexdigest())
     real_load_model = infer.fasttext.load_model
 
     def load_model(path):
