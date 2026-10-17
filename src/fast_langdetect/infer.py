@@ -31,6 +31,10 @@ FASTTEXT_LARGE_MODEL_MD5 = "01810bc59c6a3d2b79c79e6336612f65"
 _LOCAL_SMALL_MODEL_PATH = Path(__file__).parent / "resources" / "lid.176.ftz"
 _MODEL_DOWNLOAD_LOCK_TIMEOUT_SECONDS = 600.0
 _MODEL_DOWNLOAD_LOCK_POLL_SECONDS = 0.1
+# A lock older than this is left behind by a killed process. Taking it over is safe even if
+# the holder is still alive: each writer downloads to its own temp file and publishes a
+# checksum-verified file with os.replace().
+_MODEL_DOWNLOAD_LOCK_STALE_SECONDS = 600.0
 
 
 class FastLangdetectError(Exception):
@@ -76,6 +80,21 @@ class ModelDownloader:
                 lock_path.mkdir()
                 return
             except FileExistsError:
+                try:
+                    lock_age = time.time() - lock_path.stat().st_mtime
+                except FileNotFoundError:
+                    continue
+                if lock_age > _MODEL_DOWNLOAD_LOCK_STALE_SECONDS:
+                    logger.warning(f"fast-langdetect: Removing stale model cache lock {lock_path}")
+                    try:
+                        lock_path.rmdir()
+                    except FileNotFoundError:
+                        pass
+                    except OSError as e:
+                        raise FastLangdetectError(
+                            f"fast-langdetect: Cannot remove stale model cache lock {lock_path}: {e}"
+                        ) from e
+                    continue
                 if time.monotonic() >= deadline:
                     raise FastLangdetectError(
                         f"fast-langdetect: Timed out waiting for model cache lock: {lock_path}"

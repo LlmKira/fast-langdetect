@@ -1,4 +1,5 @@
 import hashlib
+import os
 import threading
 import time
 from pathlib import Path
@@ -68,6 +69,30 @@ def test_downloader_times_out_when_cache_lock_is_held(monkeypatch, tmp_path):
             expected_md5=_md5(b"valid model"),
             lock_timeout=0,
         )
+
+
+def test_downloader_takes_over_stale_cache_lock(monkeypatch, tmp_path):
+    model_data = b"valid model"
+    target = tmp_path / "lid.176.bin"
+    lock_path = tmp_path / "lid.176.bin.lock"
+    lock_path.mkdir()
+    two_hours_ago = time.time() - 7200
+    os.utime(lock_path, (two_hours_ago, two_hours_ago))
+
+    def fake_download(*, folder, filename, **kwargs):
+        Path(folder, filename).write_bytes(model_data)
+
+    monkeypatch.setattr("fast_langdetect.infer.download", fake_download)
+
+    ModelDownloader.download(
+        "https://example.invalid/model.bin",
+        target,
+        expected_md5=_md5(model_data),
+        lock_timeout=0,
+    )
+
+    assert target.read_bytes() == model_data
+    assert not lock_path.exists()
 
 
 def test_loader_downloads_only_once_for_concurrent_callers(monkeypatch, tmp_path):
