@@ -7,7 +7,6 @@ authors = [
 ]
 dependencies = [
     "robust-downloader>=0.0.2",
-    "requests>=2.32.3",
     "fasttext-predict>=0.9.2.4",
 ]
 requires-python = ">=3.9"

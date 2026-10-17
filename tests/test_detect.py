@@ -8,7 +8,6 @@ def test_muti_detect():
         k=3,
     )
     assert result[0].get("lang") == "en", "ft_detect error"
-    return True
 
 
 def test_large():
@@ -41,9 +40,6 @@ def test_detect_totally():
     ) == "ZH", "ft_detect error"
 
 
-def test_failed_example():
+def test_newline_input():
     from fast_langdetect import detect
-    try:
-        detect("hello world\nNEW LINE", model="lite")
-    except Exception as e:
-        assert isinstance(e, Exception), "ft_detect exception error"
+    assert detect("hello world\nNEW LINE", model="lite")[0]["lang"] == "en", "ft_detect error"
