@@ -31,19 +31,19 @@ _FASTTEXT_CONFLICT_MESSAGE = (
 # Use system temporary directory as default cache directory
 DEFAULT_CACHE_DIR = Path(tempfile.gettempdir()) / "fasttext-langdetect"
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", str(DEFAULT_CACHE_DIR))
-FASTTEXT_LARGE_MODEL_URL = os.getenv(
-    "FTLANG_MODEL_URL",
-    "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin",
+DEFAULT_FASTTEXT_LARGE_MODEL_URL = (
+    "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
 )
 FASTTEXT_LARGE_MODEL_MIRROR_URL = (
     "https://github.com/LlmKira/fast-langdetect/releases/download/models-v1/lid.176.bin"
 )
 # An explicit FTLANG_MODEL_URL replaces the source chain; without it, try the
 # upstream host first and the project-hosted mirror second.
+_MODEL_URL_OVERRIDE = os.getenv("FTLANG_MODEL_URL")
 FASTTEXT_LARGE_MODEL_URLS = (
-    (FASTTEXT_LARGE_MODEL_URL,)
-    if os.getenv("FTLANG_MODEL_URL")
-    else (FASTTEXT_LARGE_MODEL_URL, FASTTEXT_LARGE_MODEL_MIRROR_URL)
+    (_MODEL_URL_OVERRIDE,)
+    if _MODEL_URL_OVERRIDE
+    else (DEFAULT_FASTTEXT_LARGE_MODEL_URL, FASTTEXT_LARGE_MODEL_MIRROR_URL)
 )
 FASTTEXT_LARGE_MODEL_NAME = "lid.176.bin"
 FASTTEXT_LARGE_MODEL_MD5 = "01810bc59c6a3d2b79c79e6336612f65"
