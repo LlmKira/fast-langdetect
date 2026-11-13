@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- Fix: The full-model download URL can be overridden with the `FTLANG_MODEL_URL` environment variable or `LangDetectConfig(model_url=...)`, so an unreachable upstream host (for example, an expired TLS certificate) no longer blocks first-run downloads. The file is still checksum-verified against the official model. (#41)
+
 ## [1.1.0] - 2026-10-17
 
 - Packaging: On Python 3.14+, the `fasttext` backend is now `fasttext-predict-v2==1.1.0`, which ships 3.14 wheels, so installs no longer need a C++ compiler. Python 3.9–3.13 keep `fasttext-predict`. (#34)
