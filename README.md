@@ -75,7 +75,7 @@ For higher accuracy, prefer the full model via `detect(text, model='full')`. For
 - The model downloads to the system temporary directory by default. You can customize it by:
   - Setting `FTLANG_CACHE` environment variable
   - Using `LangDetectConfig(cache_dir="your/path")`
-- The full model downloads from `dl.fbaipublicfiles.com` by default. If that host is unavailable, override the source with `FTLANG_MODEL_URL` or `LangDetectConfig(model_url=...)`; the mirror must serve the same `lid.176.bin` file.
+- The full model downloads from `dl.fbaipublicfiles.com` by default and falls back to a mirror in this repository's [`models-v1` release](https://github.com/LlmKira/fast-langdetect/releases/tag/models-v1) when that host is unavailable. Override the source entirely with `FTLANG_MODEL_URL` or `LangDetectConfig(model_url=...)`; the override must serve the same `lid.176.bin` file.
 
 ### Quick Start
 
@@ -103,14 +103,14 @@ Each `LangDetector` instance maintains its own in-memory model cache. Once loade
 
 Create a custom `LangDetector` instance when you need specific configuration (custom cache directory, input limits, etc.) or isolated model management. Create it once and reuse it: `detect(text, config=...)` builds a new detector and reloads the model on every call, so it is deprecated and will be removed in 2.0.
 
-If the upstream model host is unreachable, point the downloader at a mirror that serves the same `lid.176.bin`:
+By default, downloads try `dl.fbaipublicfiles.com` and then the project-hosted `models-v1` GitHub release mirror. To override the source entirely, set `FTLANG_MODEL_URL` before importing the package or pass `model_url`:
 
 ```python
 config = LangDetectConfig(model_url="https://mirror.example/lid.176.bin")
 detector = LangDetector(config)
 ```
 
-Alternatively, set `FTLANG_MODEL_URL` before importing the package. Downloads are still checked against the official MD5, so a mirror serving a different model is rejected; use `custom_model_path` for a different model.
+Downloads are still checked against the official MD5, so a mirror serving a different model is rejected; use `custom_model_path` for a different model.
 
 #### 🌵 Fallback Policy 
 

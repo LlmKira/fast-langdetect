@@ -4,7 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-- Fix: The full-model download URL can be overridden with the `FTLANG_MODEL_URL` environment variable or `LangDetectConfig(model_url=...)`, so an unreachable upstream host (for example, an expired TLS certificate) no longer blocks first-run downloads. The file is still checksum-verified against the official model. (#41)
+- Reliability: Full-model downloads fall back to a `lid.176.bin` asset in the project's `models-v1` GitHub release when the upstream host is unavailable, so an outage such as an expired TLS certificate no longer blocks first-run downloads. (#41)
+- Fix: The download source can be overridden entirely with the `FTLANG_MODEL_URL` environment variable or `LangDetectConfig(model_url=...)`. The file is still checksum-verified against the official model. (#41)
 
 ## [1.1.0] - 2026-10-17
 

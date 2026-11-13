@@ -67,6 +67,56 @@ def test_config_model_url_overrides_download_source(monkeypatch, tmp_path):
     assert requested_urls == ["https://mirror.example/lid.176.bin"]
 
 
+def test_default_download_falls_back_to_mirror(monkeypatch, tmp_path):
+    model_data = b"mirror model"
+    requested_urls = []
+
+    monkeypatch.setattr(infer, "FASTTEXT_LARGE_MODEL_MD5", hashlib.md5(model_data).hexdigest())
+    monkeypatch.setattr(
+        infer,
+        "FASTTEXT_LARGE_MODEL_URLS",
+        (infer.FASTTEXT_LARGE_MODEL_URL, infer.FASTTEXT_LARGE_MODEL_MIRROR_URL),
+    )
+
+    def fake_download(*, url, folder, filename, **kwargs):
+        requested_urls.append(url)
+        if url == infer.FASTTEXT_LARGE_MODEL_URL:
+            raise RuntimeError("primary source unavailable")
+        Path(folder, filename).write_bytes(model_data)
+
+    monkeypatch.setattr(infer, "download", fake_download)
+    monkeypatch.setattr(infer.ModelLoader, "load_local", lambda self, path: _FakeModel())
+
+    detector = LangDetector(LangDetectConfig(cache_dir=str(tmp_path)))
+
+    assert detector.detect("Hello world", model="full")[0]["lang"] == "en"
+    assert requested_urls == [
+        infer.FASTTEXT_LARGE_MODEL_URL,
+        infer.FASTTEXT_LARGE_MODEL_MIRROR_URL,
+    ]
+
+
+def test_explicit_model_url_does_not_fall_back(monkeypatch, tmp_path):
+    requested_urls = []
+
+    def fake_download(*, url, folder, filename, **kwargs):
+        requested_urls.append(url)
+        raise RuntimeError("source unavailable")
+
+    monkeypatch.setattr(infer, "download", fake_download)
+
+    detector = LangDetector(
+        LangDetectConfig(
+            cache_dir=str(tmp_path),
+            model_url="https://mirror.example/lid.176.bin",
+        )
+    )
+
+    with pytest.raises(infer.FastLangdetectError, match="Download failed"):
+        detector.detect("Hello world", model="full")
+    assert requested_urls == ["https://mirror.example/lid.176.bin"]
+
+
 def test_model_url_env_overrides_default():
     env = os.environ.copy()
     env["FTLANG_MODEL_URL"] = "https://mirror.example/lid.176.bin"
