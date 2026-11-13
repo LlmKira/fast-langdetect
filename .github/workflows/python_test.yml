@@ -15,7 +15,8 @@ jobs:
     strategy:
       matrix:
         python-version: [ '3.9', '3.10', '3.11', '3.12', '3.13', '3.14' ]
-        os: [ ubuntu-latest, windows-latest ] # , ubuntu-latest, macos-latest
+        # ubuntu-latest is 26.04, which has no Python 3.9 build in actions/python-versions.
+        os: [ ubuntu-24.04, windows-latest ] # , ubuntu-latest, macos-latest
 
     steps:
       - uses: actions/checkout@v3

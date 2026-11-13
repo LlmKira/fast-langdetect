@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- Reliability: Full-model downloads fall back to a `lid.176.bin` asset in the project's `models-v1` GitHub release when the upstream host is unavailable, so an outage such as an expired TLS certificate no longer blocks first-run downloads. (#41)
+- Fix: The download source can be overridden entirely with the `FTLANG_MODEL_URL` environment variable or `LangDetectConfig(model_url=...)`. The file is still checksum-verified against the official model. (#41)
+
 ## [1.1.0] - 2026-10-17
 
 - Packaging: On Python 3.14+, the `fasttext` backend is now `fasttext-predict-v2==1.1.0`, which ships 3.14 wheels, so installs no longer need a C++ compiler. Python 3.9–3.13 keep `fasttext-predict`. (#34)

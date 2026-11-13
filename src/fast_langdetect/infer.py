@@ -31,8 +31,19 @@ _FASTTEXT_CONFLICT_MESSAGE = (
 # Use system temporary directory as default cache directory
 DEFAULT_CACHE_DIR = Path(tempfile.gettempdir()) / "fasttext-langdetect"
 CACHE_DIRECTORY = os.getenv("FTLANG_CACHE", str(DEFAULT_CACHE_DIR))
-FASTTEXT_LARGE_MODEL_URL = (
+DEFAULT_FASTTEXT_LARGE_MODEL_URL = (
     "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin"
+)
+FASTTEXT_LARGE_MODEL_MIRROR_URL = (
+    "https://github.com/LlmKira/fast-langdetect/releases/download/models-v1/lid.176.bin"
+)
+# An explicit FTLANG_MODEL_URL replaces the source chain; without it, try the
+# upstream host first and the project-hosted mirror second.
+_MODEL_URL_OVERRIDE = os.getenv("FTLANG_MODEL_URL")
+FASTTEXT_LARGE_MODEL_URLS = (
+    (_MODEL_URL_OVERRIDE,)
+    if _MODEL_URL_OVERRIDE
+    else (DEFAULT_FASTTEXT_LARGE_MODEL_URL, FASTTEXT_LARGE_MODEL_MIRROR_URL)
 )
 FASTTEXT_LARGE_MODEL_NAME = "lid.176.bin"
 FASTTEXT_LARGE_MODEL_MD5 = "01810bc59c6a3d2b79c79e6336612f65"
@@ -238,15 +249,30 @@ class ModelLoader:
             return self._load_windows_compatible(model_path)
         return self._load_unix(model_path)
 
-    def load_with_download(self, model_path: Path, proxy: Optional[str] = None) -> Any:
+    def load_with_download(
+        self,
+        model_path: Path,
+        proxy: Optional[str] = None,
+        model_url: Optional[str] = None,
+    ) -> Any:
         """Internal method to load model with download if needed."""
         if not self._downloader._is_valid_model(model_path, FASTTEXT_LARGE_MODEL_MD5):
-            self._downloader.download(
-                FASTTEXT_LARGE_MODEL_URL,
-                model_path,
-                proxy,
-                expected_md5=FASTTEXT_LARGE_MODEL_MD5,
-            )
+            urls = (model_url,) if model_url else FASTTEXT_LARGE_MODEL_URLS
+            for index, url in enumerate(urls):
+                try:
+                    self._downloader.download(
+                        url,
+                        model_path,
+                        proxy,
+                        expected_md5=FASTTEXT_LARGE_MODEL_MD5,
+                    )
+                    break
+                except FastLangdetectError as e:
+                    if index == len(urls) - 1:
+                        raise
+                    logger.warning(
+                        f"fast-langdetect: Download from {url} failed, trying next source: {e}"
+                    )
         return self.load_local(model_path)
 
     def _load_windows_compatible(self, model_path: Path) -> Any:
@@ -335,6 +361,7 @@ class LangDetectConfig:
     :param normalize_input: Whether to normalize input text (e.g. lowercase for uppercase text)
     :param max_input_length: If set, truncate input to this many characters (logged at INFO level)
     :param model: Default model selection ('auto' | 'full' | 'lite') used when detect() is called without a model
+    :param model_url: Explicit URL to download the full model from (overrides FTLANG_MODEL_URL and the built-in source chain)
     """
 
     def __init__(
@@ -345,6 +372,7 @@ class LangDetectConfig:
             normalize_input: bool = True,
             max_input_length: Optional[int] = 80,
             model: Literal["lite", "full", "auto"] = "auto",
+            model_url: Optional[str] = None,
     ):
         self.cache_dir = cache_dir or CACHE_DIRECTORY
         self.custom_model_path = custom_model_path
@@ -353,6 +381,7 @@ class LangDetectConfig:
         # Input handling
         self.max_input_length = max_input_length
         self.model: Literal["lite", "full", "auto"] = model
+        self.model_url = model_url
         if self.custom_model_path and not Path(self.custom_model_path).exists():
             raise FileNotFoundError(f"fast-langdetect: Target model file not found: {self.custom_model_path}")
 
@@ -439,6 +468,7 @@ class LangDetector:
                 model = self._model_loader.load_with_download(
                     model_path,
                     self.config.proxy,
+                    self.config.model_url,
                 )
             self._models[cache_key] = model
             return model

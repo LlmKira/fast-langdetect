@@ -75,6 +75,7 @@ For higher accuracy, prefer the full model via `detect(text, model='full')`. For
 - The model downloads to the system temporary directory by default. You can customize it by:
   - Setting `FTLANG_CACHE` environment variable
   - Using `LangDetectConfig(cache_dir="your/path")`
+- The full model downloads from `dl.fbaipublicfiles.com` by default and falls back to a mirror in this repository's [`models-v1` release](https://github.com/LlmKira/fast-langdetect/releases/tag/models-v1) when that host is unavailable. Override the source entirely with `FTLANG_MODEL_URL` or `LangDetectConfig(model_url=...)`; the override must serve the same `lid.176.bin` file.
 
 ### Quick Start
 
@@ -101,6 +102,15 @@ print(detector.detect("Hola", model="full", k=1))
 Each `LangDetector` instance maintains its own in-memory model cache. Once loaded, models are reused for subsequent calls within the same instance. The global `detect()` function uses a shared default detector, so it also benefits from automatic caching.
 
 Create a custom `LangDetector` instance when you need specific configuration (custom cache directory, input limits, etc.) or isolated model management. Create it once and reuse it: `detect(text, config=...)` builds a new detector and reloads the model on every call, so it is deprecated and will be removed in 2.0.
+
+By default, downloads try `dl.fbaipublicfiles.com` and then the project-hosted `models-v1` GitHub release mirror. To override the source entirely, set `FTLANG_MODEL_URL` before importing the package or pass `model_url`:
+
+```python
+config = LangDetectConfig(model_url="https://mirror.example/lid.176.bin")
+detector = LangDetector(config)
+```
+
+Downloads are still checked against the official MD5, so a mirror serving a different model is rejected; use `custom_model_path` for a different model.
 
 #### 🌵 Fallback Policy 
 
@@ -146,7 +156,7 @@ print(detector.detect("Some very long text..." * 5))
 
 ### Advanced Options (Optional)
 
-The constructor exposes a few advanced knobs (`proxy`, `normalize_input`, `max_input_length`). These are rarely needed for typical usage and can be ignored. Prefer `detect(..., model=...)` unless you know you need them.
+The constructor exposes a few advanced knobs (`proxy`, `model_url`, `normalize_input`, `max_input_length`). These are rarely needed for typical usage and can be ignored. Prefer `detect(..., model=...)` unless you know you need them.
 
 ### Language Codes → English Names
 
